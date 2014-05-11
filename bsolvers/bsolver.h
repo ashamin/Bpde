@@ -1,12 +1,13 @@
-#ifndef LSOLVER_H
-#define LSOLVER_H
+#ifndef BSOLVER_H
+#define BSOLVER_H
 
+namespace Bpde {
 
 /**
- * Base class for solvers of sparse linear systems.
- * \author ashamin
+ *
  */
-class BSolver{
+class BSolver
+{
 public:
   double* solve();
   double exec_time();
@@ -33,5 +34,6 @@ void TDMA(const double* a, const double* b, const double* c,
 void TDMA_t(const double* a, const double* b, const double* c,
         double* x, const double* d, int n, int step, double *loc_c, double *loc_d);
 
+} // namespace Bpde
 
 #endif

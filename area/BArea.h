@@ -3,7 +3,10 @@
 
 #include <string>
 
-class BArea{
+namespace Bpde
+{
+
+class BArea {
 public:
     /**
      * @brief BArea
@@ -16,15 +19,22 @@ public:
      */
     BArea(double sizeX, double sizeY, double destTime, int I, int J, double T);
     BArea(std::string file);
+    BArea(const BArea& area);
+    ~BArea();
 
     double answer(double x, double y, double t);
 
-    double* H;
-    int I, J, T;
-    double hx, hy, dt;
+    virtual double V(double x, double y, double t);
 
-    double V(double x, double y, double t);
+    double* H;
+    double* x;
+    double* y;
+    int I, J, T;
+
+private:
+    double hx, hy, dt;
 };
 
+} // namespace Bpde
 
 #endif

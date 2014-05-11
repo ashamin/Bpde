@@ -1,5 +1,8 @@
 #include "bsolver.h"
 
+
+namespace Bpde
+{
 //// к чему это???? wtf
 /////!!!!!! Исправить и отладить!!!!!!
 /// 2)  loc_d[i] = (d[i] - loc_d[i-step]*a[i]) / tmp;----->>>    loc_d[i] = (d[i*step] - loc_d[i-step]*a[i]) / tmp;
@@ -46,3 +49,5 @@ void TDMA_t(const double *a, const double *b, const double *c,
 
     return;
 }
+
+} // namespace Bpde

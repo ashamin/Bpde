@@ -5,6 +5,9 @@
 #include <iostream>
 #include <fstream>
 
+namespace Bpde
+{
+
 BArea::BArea(double sizeX, double sizeY, double destTime, int I, int J, double T){
     this->I = I;
     this->J = J;
@@ -24,38 +27,68 @@ BArea::BArea(std::string file)
         exit(1);
     }
 
-    std::ofstream test;
-    test.open("olol.txt", std::ios::out);
+//    std::ofstream test;
+//    test.open("olol.txt", std::ios::out);
 
     area >> I;
-    area >> hx;
     area >> J;
-    area >> hy;
     area >> T;
     area >> dt;
-    double tmp;
 
-//    test << I << " " << hx << " " << J << " " << hy << " " << T << " " << dt << std::endl;
+    I += 2;
+    J += 2;
 
-    H = new double((I+2)*(J+2));
+    H = new double(I*J);
+    x = new double(I);
+    y = new double(J);
 
-    for (int i = 1; i<I+1; i++){
-        for (int j = 1; j<J+1; j++){
-            area >> tmp;
-            area >> tmp;
-            area >> H[i+(I+2)*j];
-//            test << (i-1)*hx << " " << (j-1)*hy << " " << H[j+(J+2)*i] << std::endl;
+    for (int i = 1; i<I-1; i++){
+        for (int j = 1; j<J-1; j++){
+            area >> x[i];
+            area >> y[j];
+            area >> H[i+I*j];
         }
     }
 
     area.close();
 
-    for (int j = 0; j<J+2; j++){
-        for (int i = 0; i<I+2; i++)
-           test <<  H[i+(I+2)*j] << "\t";
-        test << std::endl;
-    }
-    test.close();
+//    test << I << " " << J << " " << T << " " << dt << std::endl;
+
+//    for (int i = 1; i<I+1; i++)
+//        for (int j = 1; j<J+1; j++)
+//            test << x[i] << " " << y[j] << " " << H[i+(I+2)*j] << std::endl;
+//    for (int j = 0; j<J+2; j++){
+//        for (int i = 0; i<I+2; i++)
+//           test <<  H[i+(I+2)*j] << "\t";
+//        test << std::endl;
+//    }
+//    test.close();
+}
+
+BArea::BArea(const BArea &area)
+{
+    this->I = area.I;
+    this->J = area.J;
+    this->T = area.T;
+    this->dt = area.dt;
+
+    H = new double(I*J);
+    x = new double(I);
+    y = new double(J);
+
+    for (int i = 0; i<I; i++)
+        x[i] = area.x[i];
+    for (int j = 0; j<I; j++)
+        y[j] = area.y[j];
+    for (int i = 0; i<I*J; i++)
+        H[i] = area.H[i];
+}
+
+BArea::~BArea()
+{
+    delete H;
+    delete x;
+    delete y;
 }
 
 double BArea::answer(double x, double y, double t){
@@ -71,3 +104,5 @@ double BArea::V(double x, double y, double t){
 //    return 3.14159265359 * 3.14159265359 * cos(3.14159265359 * x);
 //    return -18*y;
 }
+
+} // namespace Bpde

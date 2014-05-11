@@ -1,5 +1,5 @@
-#ifndef IMPLEXPL_BOUSS
-#define IMPLEXPL_BOUSS
+#ifndef BSOLVER_OMP
+#define BSOLVER_OMP
 
 #include "BArea.h"
 #include "bsolver.h"
@@ -8,7 +8,7 @@
 #include <iostream>
 #include "math.h"
 
-namespace Boussinesq{
+namespace Bpde{
 
 // z ceiling and z floor
 const double zc = 160, zf = 90;
@@ -23,25 +23,13 @@ inline void getMu(double* mu, double H)
 
 inline double Tx(double H)
 {
-//    ret = (H >= zc)?kx*(zc - zf):((H < zf)?0:kx*(H - zf));
-//    return 1;
     return (H >= zc)?kx*(zc - zf):((H < zf)?0:kx*(H - zf));
 }
 
-
-
 inline double Ty(double H)
 {
-//    ret = (H >= zc)?ky*(zc - zf):((H < zf)?0:ky*(H - zf));
-//    return 1;
     return (H >= zc)?ky*(zc - zf):((H < zf)?0:ky*(H - zf));
 }
-
-//#define __get_mu(mu, H) (mu) = ((H) >= zc)?mu1:mu2;
-////#define __Tx(ret, H) (ret) = ((H) >= zc)?kx*(zc - zf):(((H) < zf)?0:kx*((H) - zf))
-//#define __Tx(ret, H) (ret) = 1//kx*(zc - zf)
-////#define __Ty(ret, H) (ret) = ((H) >= zc)?ky*(zc - zf):(((H) < zf)?0:ky*((H) - zf))
-//#define __Ty(ret, H) (ret) = 1//ky*(zc - zf)
 
 inline void log_matrix(char *name, double* var, int xSz, int ySz)
 {
@@ -102,18 +90,11 @@ inline void log_diags_as_3dmatrix(char *name,
 class BSolverOmp : public BSolver
 {
 public:
-    BSolverOmp(BArea* area, const double epsilon, const int maxit);
+    BSolverOmp(BArea* area, double epsilon, int maxit);
     virtual ~BSolverOmp();
 
 	double* solve();
 
-	double borderValue(double x, double y, double t);
-	void recomputeBorderValues();
-
-	// whole H (with borders)
-	double** Hw;
-	// H only borders
-	double* Hb;
 	// H computation area
 	double* H;
 	// approximation of H
@@ -123,10 +104,8 @@ public:
 	
 	double epsilon;
 	int maxit;
-	// Hw vector legth
+
 	int n;
-	// H vector length
-	int m;
 	double* V;
 	
 	double exec_time();
@@ -134,14 +113,14 @@ public:
 
 	BArea* area;
 
-	double* x;
-	double* y;
+    double* x;
+    double* y;
 
 	double t;
 	double dt;
 
 private:
-	void prepareIteration();
+    inline void prepareIteration();
 
 	// diags of X differential operator
 	double* dx_d;
@@ -159,14 +138,9 @@ private:
 	//coefficient near time differential
 	double* mu;
 
-	// corresponds to I-2 and J-2
-	// x - splits and y - splits
-	int xs, ys;
-
 	int I, J;
 
     int iterations;
-
 };
 
 }
