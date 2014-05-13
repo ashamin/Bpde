@@ -10,9 +10,22 @@
 
 namespace Bpde{
 
+/// TODO: move theese variables to __bpde_omp namespace
+namespace __bpde_omp {
+    static double *H, *Ha;
+    static double *x, *y;
+    static double *V;
+    static double *mu;
+    static double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
+    static double *loc_c, *loc_d, *b;
+    static int I, J, T;
+    static double dt;
+}
+///////////
+
+
 // z ceiling and z floor
 const double zc = 160, zf = 90;
-//const double mu1 = 1, mu2 = 1;
 const double mu1 = 0.16, mu2 = 0.16;
 const double kx = (double)1/(3600*24), ky = (double)1/(3600*24);
 
@@ -117,7 +130,7 @@ public:
     double* y;
 
 	double t;
-	double dt;
+    double dt;
 
 private:
     inline void prepareIteration();

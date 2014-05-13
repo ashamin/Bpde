@@ -31,7 +31,7 @@ public:
     double* y;
     int I, J, T;
 
-private:
+//private:
     double hx, hy, dt;
 };
 
