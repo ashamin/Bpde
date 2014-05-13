@@ -27,8 +27,11 @@ BArea::BArea(std::string file)
         exit(1);
     }
 
-//    std::ofstream test;
-//    test.open("olol.txt", std::ios::out);
+    std::ofstream test;
+    test.open("olol.txt", std::ios::out);
+
+    hx = 50;
+    hy = 50;
 
     area >> I;
     area >> J;
@@ -38,9 +41,13 @@ BArea::BArea(std::string file)
     I += 2;
     J += 2;
 
-    H = new double(I*J);
-    x = new double(I);
-    y = new double(J);
+    H = new double[I*J];
+    x = new double[I];
+    y = new double[J];
+
+    for (int i = 0; i<I*J; i++)
+        H[i] = 0;
+    x[0] = y[0] = x[I-1] = y[J-1] = 0.0;
 
     for (int i = 1; i<I-1; i++){
         for (int j = 1; j<J-1; j++){
@@ -63,6 +70,12 @@ BArea::BArea(std::string file)
 //        test << std::endl;
 //    }
 //    test.close();
+    for (int j = 0; j<J-1; j++){
+            for (int i = 0; i<I-1; i++)
+               test <<  H[i+I*j] << "\t";
+            test << std::endl;
+        }
+        test.close();
 }
 
 BArea::BArea(const BArea &area)
@@ -86,9 +99,9 @@ BArea::BArea(const BArea &area)
 
 BArea::~BArea()
 {
-    delete H;
-    delete x;
-    delete y;
+    delete[] H;
+    delete[] x;
+    delete[] y;
 }
 
 double BArea::answer(double x, double y, double t){

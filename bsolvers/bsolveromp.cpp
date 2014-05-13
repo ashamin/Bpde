@@ -8,34 +8,20 @@ using namespace std;
 namespace Bpde
 {
 
-BSolverOmp::BSolverOmp(BArea* area, int maxit)
+BSolverOmp::BSolverOmp(BArea* area)
 {
     using namespace __bpde_omp;
 
     this->area = area;
-    this->maxit = maxit;
     t = 0;
     dt = area->dt;
 
-    I = area->I + 2;
-    J = area->J + 2;
+    I = area->I;
+    J = area->J;
     n = I*J;
 
-
-//    H   = new double[n];
-    Ha  = new double[n];
-
-//    memset(H, 0, n*sizeof(double));
-//    memset(Ha, 0, n*sizeof(double));
-
-//    for (int j = 1; j<J-1; j++)
-//        for (int i = 1; i<I-1; i++)
-//            H[i + I*j] = area->answer(x[i-1], y[j-1], 0);
-//    for (int i = 0; i<n; i++)
-//        H[i] = area->H[i];
-
-    H = area->H;
-
+    H     = area->H;
+    Ha    = new double[n];
     b     = new double[n];
     V     = new double[n];
     dx_d  = new double[n];
@@ -49,24 +35,28 @@ BSolverOmp::BSolverOmp(BArea* area, int maxit)
     loc_c = new double[n];
     loc_d = new double[n];
 
-    memset(b, 0, n*sizeof(double));
-    memset(V, 0, n*sizeof(double));
-    memset(dx_d, 0, n*sizeof(double));
-    memset(dx_l, 0, n*sizeof(double));
-    memset(dx_u, 0, n*sizeof(double));
-    memset(dy_d, 0, n*sizeof(double));
-    memset(dy_l, 0, n*sizeof(double));
-    memset(dy_u, 0, n*sizeof(double));
-    memset(mu, 0, n*sizeof(double));
-    memset(loc_c, 0, n*sizeof(double));
-    memset(loc_d, 0, n*sizeof(double));
+    for (int i =0; i<n; i++)
+        Ha[i] = b[i] = V[i] = dx_d[i] = dx_l[i] = dx_u[i] = dy_d[i] = dy_l[i] = dy_u[i] =
+                mu[i] = loc_c[i] = loc_d[i] = 0;
 
     iterations = 0;
 }
     
 BSolverOmp::~BSolverOmp()
 {
-
+    using namespace __bpde_omp;
+    delete[] Ha;
+    delete[] b;
+    delete[] V;
+    delete[] dx_d;
+    delete[] dx_l;
+    delete[] dx_u;
+    delete[] dy_d;
+    delete[] dy_l;
+    delete[] dy_u;
+    delete[] mu;
+    delete[] loc_c;
+    delete[] loc_d;
 }
 
 void BSolverOmp::prepareIteration()
@@ -75,7 +65,7 @@ void BSolverOmp::prepareIteration()
     // пересчитываем функцию V а каждом шаге
     for (int j = 1; j<J-1; j++)
         for (int i = 1; i<I-1; i++)
-            V[i + I*j] = area->V(area->x[i-1], area->y[j-1], t);
+            V[i + I*j] = area->V(area->x[i], area->y[j], t);
 
     // формируем Tx на каждом шаге
     for (int j = 2; j<J-2; j++) {
@@ -129,8 +119,7 @@ double* BSolverOmp::solve()
 {
     using namespace __bpde_omp;
 
-    double* tmp_v = new double[n];
-    int s         = (int)sqrt(n);
+    double* tmp_v = new double(n);
 
     while (t<(area->dt*(area->T-1))){
 

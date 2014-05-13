@@ -1,5 +1,5 @@
-#ifndef BSOLVER_OMP
-#define BSOLVER_OMP
+#ifndef BSOLVER_OMP_H
+#define BSOLVER_OMP_H
 
 #include "BArea.h"
 #include "bsolver.h"
@@ -8,7 +8,7 @@
 #include <iostream>
 #include "math.h"
 
-namespace Bpde{
+namespace Bpde {
 
 namespace __bpde_omp {
     static double *H, *Ha;
@@ -102,56 +102,19 @@ inline void log_diags_as_3dmatrix(char *name,
 class BSolverOmp : public BSolver
 {
 public:
-    BSolverOmp(BArea* area, int maxit);
+    BSolverOmp(BArea* area);
     virtual ~BSolverOmp();
 
-    virtual double* solve();
+    double* solve();
 
-	// H computation area
-//	double* H;
-//	// approximation of H
-//	double* Ha;
-
-//	double* b;
-	
-	double epsilon;
-	int maxit;
-
-//	int n;
-//	double* V;
-	
     virtual double exec_time();
-	int it_num();
+    int it_num();
 
 	BArea* area;
 
-//    double* x;
-//    double* y;
-
 	double t;
-//    double dt;
-
 private:
     inline void prepareIteration();
-
-//	// diags of X differential operator
-//	double* dx_d;
-//	double* dx_l;
-//	double* dx_u;
-
-//	// diags of Y differentioal operator
-//	double* dy_d;
-//	double* dy_l;
-//	double* dy_u;
-
-//	double* loc_c;
-//	double* loc_d;
-
-//	//coefficient near time differential
-//	double* mu;
-
-//	int I, J;
-
     int iterations;
 };
 

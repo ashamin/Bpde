@@ -9,8 +9,8 @@ namespace Bpde {
 class BSolver
 {
 public:
-    virtual double* solve();
-//    virtual double exec_time();
+    virtual double* solve() = 0;
+    virtual double exec_time() = 0;
 };
 
 void TDMA(const double* a, const double* b, const double* c,
