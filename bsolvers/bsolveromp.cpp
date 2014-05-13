@@ -8,10 +8,11 @@ using namespace std;
 namespace Bpde
 {
 
-BSolverOmp::BSolverOmp(BArea* area, const double epsilon, const int maxit)
+BSolverOmp::BSolverOmp(BArea* area, int maxit)
 {
+    using namespace __bpde_omp;
+
     this->area = area;
-    this->epsilon = epsilon;
     this->maxit = maxit;
     t = 0;
     dt = area->dt;
@@ -19,15 +20,6 @@ BSolverOmp::BSolverOmp(BArea* area, const double epsilon, const int maxit)
     I = area->I + 2;
     J = area->J + 2;
     n = I*J;
-
-    x = new double[area->I];
-    y = new double[area->J];
-
-    x[0] = y[0] = 0;
-    for (int i = 1; i<area->I; i++)
-        x[i] = x[i-1] + area->hx;
-    for (int j = 1; j<area->J; j++)
-        y[j] = y[j-1] + area->hy;
 
 
 //    H   = new double[n];
@@ -79,6 +71,7 @@ BSolverOmp::~BSolverOmp()
 
 void BSolverOmp::prepareIteration()
 {
+    using namespace __bpde_omp;
     // пересчитываем функцию V а каждом шаге
     for (int j = 1; j<J-1; j++)
         for (int i = 1; i<I-1; i++)
@@ -134,7 +127,8 @@ void BSolverOmp::prepareIteration()
 
 double* BSolverOmp::solve()
 {
-  
+    using namespace __bpde_omp;
+
     double* tmp_v = new double[n];
     int s         = (int)sqrt(n);
 
@@ -207,6 +201,11 @@ double* BSolverOmp::solve()
     log_matrix("H", H, I, J);
 
     return H;
+}
+
+double BSolverOmp::exec_time()
+{
+    return 0.0;
 }
 
 } // namespace Bpde

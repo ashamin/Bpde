@@ -10,7 +10,6 @@
 
 namespace Bpde{
 
-/// TODO: move theese variables to __bpde_omp namespace
 namespace __bpde_omp {
     static double *H, *Ha;
     static double *x, *y;
@@ -20,8 +19,8 @@ namespace __bpde_omp {
     static double *loc_c, *loc_d, *b;
     static int I, J, T;
     static double dt;
+    static int n;
 }
-///////////
 
 
 // z ceiling and z floor
@@ -103,55 +102,55 @@ inline void log_diags_as_3dmatrix(char *name,
 class BSolverOmp : public BSolver
 {
 public:
-    BSolverOmp(BArea* area, double epsilon, int maxit);
+    BSolverOmp(BArea* area, int maxit);
     virtual ~BSolverOmp();
 
-	double* solve();
+    virtual double* solve();
 
 	// H computation area
-	double* H;
-	// approximation of H
-	double* Ha;
+//	double* H;
+//	// approximation of H
+//	double* Ha;
 
-	double* b;
+//	double* b;
 	
 	double epsilon;
 	int maxit;
 
-	int n;
-	double* V;
+//	int n;
+//	double* V;
 	
-	double exec_time();
+    virtual double exec_time();
 	int it_num();
 
 	BArea* area;
 
-    double* x;
-    double* y;
+//    double* x;
+//    double* y;
 
 	double t;
-    double dt;
+//    double dt;
 
 private:
     inline void prepareIteration();
 
-	// diags of X differential operator
-	double* dx_d;
-	double* dx_l;
-	double* dx_u;
+//	// diags of X differential operator
+//	double* dx_d;
+//	double* dx_l;
+//	double* dx_u;
 
-	// diags of Y differentioal operator
-	double* dy_d;
-	double* dy_l;
-	double* dy_u;
+//	// diags of Y differentioal operator
+//	double* dy_d;
+//	double* dy_l;
+//	double* dy_u;
 
-	double* loc_c;
-	double* loc_d;
+//	double* loc_c;
+//	double* loc_d;
 
-	//coefficient near time differential
-	double* mu;
+//	//coefficient near time differential
+//	double* mu;
 
-	int I, J;
+//	int I, J;
 
     int iterations;
 };
