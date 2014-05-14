@@ -11,19 +11,20 @@ using namespace std;
 namespace Bpde
 {
 
-BSolverOmp::BSolverOmp(BArea* area)
+BSolverOmp::BSolverOmp(const BArea& area)
+    :area(area),
+     t(0),
+     iterations(0)
 {
     using namespace __bpde_omp;
 
-    this->area = area;
-    t = 0;
-    dt = area->dt;
+    dt = area.dt;
 
-    I = area->I;
-    J = area->J;
+    I = area.I;
+    J = area.J;
     n = I*J;
 
-    H     = area->H;
+    H     = area.H;
     Ha    = new double[n];
     b     = new double[n];
     V     = new double[n];
@@ -41,8 +42,6 @@ BSolverOmp::BSolverOmp(BArea* area)
     for (int i =0; i<n; i++)
         Ha[i] = b[i] = V[i] = dx_d[i] = dx_l[i] = dx_u[i] = dy_d[i] = dy_l[i] = dy_u[i] =
                 mu[i] = loc_c[i] = loc_d[i] = 0;
-
-    iterations = 0;
 }
     
 BSolverOmp::~BSolverOmp()
@@ -68,7 +67,7 @@ void BSolverOmp::prepareIteration()
     // пересчитываем функцию V а каждом шаге
     for (int j = 1; j<J-1; j++)
         for (int i = 1; i<I-1; i++)
-            V[i + I*j] = area->V(area->x[i], area->y[j], t);
+            V[i + I*j] = area.V(area.x[i], area.y[j], t);
 
     // формируем Tx на каждом шаге
     for (int j = 2; j<J-2; j++) {
@@ -78,10 +77,10 @@ void BSolverOmp::prepareIteration()
         dx_u[k] = -1;
 
         for (k = j*I+2; k<j*I+I-2; k++) {
-            dx_l[k] = Tx((H[k-1] + H[k])/2) / (area->hx * area->hx);
-            dx_u[k] = Tx((H[k+1] + H[k])/2) / (area->hx * area->hx);
+            dx_l[k] = Tx((H[k-1] + H[k])/2) / (area.hx * area.hx);
+            dx_u[k] = Tx((H[k+1] + H[k])/2) / (area.hx * area.hx);
             dx_d[k] = (-Tx((H[k+1] + H[k])/2) /
-                    area->hx - Tx((H[k-1] + H[k])/2) / area->hx) / area->hx;
+                    area.hx - Tx((H[k-1] + H[k])/2) / area.hx) / area.hx;
         }
 
         k = j * I + I - 2;
@@ -100,10 +99,10 @@ void BSolverOmp::prepareIteration()
         for (int j = 2; j < J - 2; j++) {
             int kH = j*I+i;
             kT = i*J + j;
-            dy_l[kT] = Ty((H[kH-I] + H[kH])/2) / (area->hy * area->hy);
-            dy_u[kT] = Ty((H[kH+I] + H[kH])/2) / (area->hy * area->hy);
+            dy_l[kT] = Ty((H[kH-I] + H[kH])/2) / (area.hy * area.hy);
+            dy_u[kT] = Ty((H[kH+I] + H[kH])/2) / (area.hy * area.hy);
             dy_d[kT] =(-Ty((H[kH+I] + H[kH])/2) /
-                    area->hy - Ty((H[kH-I] + H[kH])/2) / area->hy) / area->hy;
+                    area.hy - Ty((H[kH-I] + H[kH])/2) / area.hy) / area.hy;
         }
 
         kT = i*J + (J-2);
@@ -124,7 +123,7 @@ double* BSolverOmp::solve()
 
     double* tmp_v = new double[n];
 
-    while (t<(area->dt*(area->T-1))){
+    while (t<(area.dt*(area.T-1))){
 
         prepareIteration();
 

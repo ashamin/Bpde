@@ -16,7 +16,8 @@ int main(int argc, char **argv) {
 
     using namespace Bpde;
 
-    BArea* area = new BArea("xyz0.txt");
+//    BArea* area = new BArea("xyz0.txt");
+    BArea area("xyz0.txt");
     //комментарий на русском. тест
 //    BArea* area           = new BArea(1, 1, 1, 300, 300, 100000);
     BSolverOmp* solver = new BSolverOmp(area);

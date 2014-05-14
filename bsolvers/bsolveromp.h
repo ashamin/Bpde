@@ -102,7 +102,7 @@ inline void log_diags_as_3dmatrix(char *name,
 class BSolverOmp : public BSolver
 {
 public:
-    BSolverOmp(BArea* area);
+    BSolverOmp(const BArea& area);
     virtual ~BSolverOmp();
 
     double* solve();
@@ -110,13 +110,13 @@ public:
     virtual double exec_time();
     int it_num();
 
-	BArea* area;
-
 	double t;
 
 private:
     inline void prepareIteration();
     int iterations;
+
+    BArea area;
 };
 
 }

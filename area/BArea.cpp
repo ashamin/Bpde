@@ -85,13 +85,16 @@ BArea::BArea(const BArea &area)
     this->T = area.T;
     this->dt = area.dt;
 
-    H = new double(I*J);
-    x = new double(I);
-    y = new double(J);
+    H = new double[I*J];
+    x = new double[I];
+    y = new double[J];
+
+    hx = 50;
+    hy = 50;
 
     for (int i = 0; i<I; i++)
         x[i] = area.x[i];
-    for (int j = 0; j<I; j++)
+    for (int j = 0; j<J; j++)
         y[j] = area.y[j];
     for (int i = 0; i<I*J; i++)
         H[i] = area.H[i];
