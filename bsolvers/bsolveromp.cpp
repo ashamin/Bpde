@@ -3,6 +3,9 @@
 #include "stdlib.h"
 #include <cstring>
 
+#include <iostream>
+#include <fstream>
+
 using namespace std;
 
 namespace Bpde
@@ -119,7 +122,7 @@ double* BSolverOmp::solve()
 {
     using namespace __bpde_omp;
 
-    double* tmp_v = new double(n);
+    double* tmp_v = new double[n];
 
     while (t<(area->dt*(area->T-1))){
 
@@ -183,10 +186,12 @@ double* BSolverOmp::solve()
 
         t += dt;
         iterations++;
-
-        std::cout << iterations << std::endl;
+        if (iterations % 10000 == 0)
+            std::cout << iterations << std::endl;
     }
 
+    log_matrix("H", Ha, I, J);
+    std::cout << std::endl << std::endl;
     log_matrix("H", H, I, J);
 
     return H;
