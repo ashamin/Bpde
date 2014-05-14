@@ -11,15 +11,15 @@
 namespace Bpde {
 
 namespace __bpde_omp {
-//    static double *H, *Ha;
-//    static double *x, *y;
-//    static double *V;
-//    static double *mu;
-//    static double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
-//    static double *loc_c, *loc_d, *b;
-//    static int I, J, T;
-//    static double dt;
-//    static int n;
+    static double *H, *Ha;
+    static double *x, *y;
+    static double *V;
+    static double *mu;
+    static double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
+    static double *loc_c, *loc_d, *b;
+    static int I, J, T;
+    static double dt;
+    static int n;
 }
 
 
@@ -113,19 +113,6 @@ public:
 	BArea* area;
 
 	double t;
-
-
-
-    double *H, *Ha;
-    double *x, *y;
-    double *V;
-    double *mu;
-    double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
-    double *loc_c, *loc_d, *b;
-    int I, J, T;
-    double dt;
-    int n;
-
 
 private:
     inline void prepareIteration();
