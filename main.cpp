@@ -3,11 +3,12 @@
 //#include "defs.h"
 #include "BArea.h"
 #include "bsolveromp.h"
+#include "bbuilder.h"
 
 #include <cmath>
 // temporary main file of srw project
-
-int main(int argc, char **argv) { 
+using namespace Bpde;
+int main(int argc, char **argv) {
 
     using namespace std;
 
@@ -16,15 +17,32 @@ int main(int argc, char **argv) {
 
     using namespace Bpde;
 
-//    BArea* area = new BArea("xyz0.txt");
-    BArea area("xyz0.txt");
-    //комментарий на русском. тест
-//    BArea* area           = new BArea(1, 1, 1, 300, 300, 100000);
-//    BSolverOmp* solver = new BSolverOmp(area);
-    BSolverOmp solver(area);
-    
-    solver.solve();
-    std::cout << solver.exec_time() << std::endl;
+// usage 1
+//    BArea area("xyz0.txt");
+//    BSolverOmp solver(area, omp_get_max_threads());
+//    solver.solve();
+//    std::cout << solver.exec_time() << std::endl;
+
+// usage 2
+//    BArea area("xyz0.txt");
+//    BSolver* solver = new BSolverOmp(area, omp_get_max_threads());
+//    solver->solve();
+//    std::cout << solver->exec_time() << std::endl;
+
+// maintain usage
+    BSolver* solver = BSolverBuilder::getInstance()->
+            getSolver("xyz0.txt", ParallelizationMethod::OPENMP);
+    solver->solve();
+    std::cout << solver->exec_time() << std::endl;
+
+    delete solver;
+
+    solver = BSolverBuilder::getInstance()->
+                getSolver("xyz0.txt", ParallelizationMethod::OPENMP, 2);
+    solver->solve();
+    std::cout << solver->exec_time() << std::endl;
+
+    delete solver;
 
     return 0;
 }
