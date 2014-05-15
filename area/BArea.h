@@ -32,7 +32,7 @@ public:
     int I, J, T;
 
 //private:
-    double hx, hy, dt;
+    double dt;
 };
 
 } // namespace Bpde

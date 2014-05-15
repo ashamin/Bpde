@@ -25,6 +25,15 @@ BSolverOmp::BSolverOmp(const BArea& area)
     n = I*J;
 
     H     = area.H;
+    x     = area.x;
+    y     = area.y;
+
+//    log_vector("x", x, I);
+//    std::cout << std::endl;
+//    log_vector("y", y, J);
+
+//    exit(0);
+
     Ha    = new double[n];
     b     = new double[n];
     V     = new double[n];
@@ -77,10 +86,18 @@ void BSolverOmp::prepareIteration()
         dx_u[k] = -1;
 
         for (k = j*I+2; k<j*I+I-2; k++) {
-            dx_l[k] = Tx((H[k-1] + H[k])/2) / (area.hx * area.hx);
-            dx_u[k] = Tx((H[k+1] + H[k])/2) / (area.hx * area.hx);
-            dx_d[k] = (-Tx((H[k+1] + H[k])/2) /
-                    area.hx - Tx((H[k-1] + H[k])/2) / area.hx) / area.hx;
+            int i = k-j*I;
+            dx_l[k] = Tx((H[k-1] + H[k])/2) /
+                    ((x[i] - x[i-1])
+                    * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
+                    );
+            dx_u[k] = Tx((H[k+1] + H[k])/2) /
+                    ((x[i+1] - x[i])
+                    * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
+                    );
+            dx_d[k] = (-Tx((H[k+1] + H[k])/2) / (x[i+1] - x[i]) -
+                        Tx((H[k-1] + H[k])/2) / (x[i] - x[i-1]))
+                    / ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2);
         }
 
         k = j * I + I - 2;
@@ -99,10 +116,17 @@ void BSolverOmp::prepareIteration()
         for (int j = 2; j < J - 2; j++) {
             int kH = j*I+i;
             kT = i*J + j;
-            dy_l[kT] = Ty((H[kH-I] + H[kH])/2) / (area.hy * area.hy);
-            dy_u[kT] = Ty((H[kH+I] + H[kH])/2) / (area.hy * area.hy);
-            dy_d[kT] =(-Ty((H[kH+I] + H[kH])/2) /
-                    area.hy - Ty((H[kH-I] + H[kH])/2) / area.hy) / area.hy;
+            dy_l[kT] = Ty((H[kH-I] + H[kH])/2) /
+                    ((y[j] - y[j-1])
+                    * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
+                    );
+            dy_u[kT] = Ty((H[kH+I] + H[kH])/2) /
+                    ((y[j+1] - y[j])
+                    * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
+                    );
+            dy_d[kT] =(-Ty((H[kH+I] + H[kH])/2) / (y[j+1] - y[j]) -
+                    Ty((H[kH-I] + H[kH])/2) / (y[j] - y[j-1]))
+                    / ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2);
         }
 
         kT = i*J + (J-2);

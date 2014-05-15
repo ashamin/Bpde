@@ -12,8 +12,8 @@ BArea::BArea(double sizeX, double sizeY, double destTime, int I, int J, double T
     this->I = I;
     this->J = J;
     this->T = T;
-    hx = sizeX / (I - 1);
-    hy = sizeY / (J - 1);
+//    hx = sizeX / (I - 1);
+//    hy = sizeY / (J - 1);
     dt = destTime / (T - 1);
 }
 
@@ -29,9 +29,6 @@ BArea::BArea(std::string file)
 
     std::ofstream test;
     test.open("olol.txt", std::ios::out);
-
-    hx = 50;
-    hy = 50;
 
     area >> I;
     area >> J;
@@ -89,9 +86,6 @@ BArea::BArea(const BArea &area)
     x = new double[I];
     y = new double[J];
 
-    hx = 50;
-    hy = 50;
-
     for (int i = 0; i<I; i++)
         x[i] = area.x[i];
     for (int j = 0; j<J; j++)
@@ -108,7 +102,8 @@ BArea::~BArea()
 }
 
 double BArea::answer(double x, double y, double t){
-    return H[static_cast<int>(x/hx)+(I+2)*static_cast<int>(y/hy)];
+    return 0;
+//    return H[static_cast<int>(x/hx)+(I+2)*static_cast<int>(y/hy)];
 //    return cos(x*3.14159265359)*cos(y*3.14159265359);
 //    return cos(3.14159265359 * x);
 //    return 1 + 3*y*y*y;
