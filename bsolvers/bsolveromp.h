@@ -20,6 +20,7 @@ namespace __bpde_omp {
     static int I, J, T;
     static double dt;
     static int n;
+    static double t;
 }
 
 
@@ -109,12 +110,10 @@ public:
 
     virtual double exec_time();
     int it_num();
-
-	double t;
-
 private:
     inline void prepareIteration();
     int iterations;
+    double time;
 
     BArea area;
 };

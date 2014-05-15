@@ -20,9 +20,11 @@ int main(int argc, char **argv) {
     BArea area("xyz0.txt");
     //комментарий на русском. тест
 //    BArea* area           = new BArea(1, 1, 1, 300, 300, 100000);
-    BSolverOmp* solver = new BSolverOmp(area);
+//    BSolverOmp* solver = new BSolverOmp(area);
+    BSolverOmp solver(area);
     
-    solver->solve();
+    solver.solve();
+    std::cout << solver.exec_time() << std::endl;
 
     return 0;
 }
