@@ -1,0 +1,9 @@
+set(BBUILDER_H
+    ${CMAKE_CURRENT_SOURCE_DIR}/bbuilder.h
+PARENT_SCOPE
+)
+
+set(BBUILDER_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/bbuilder.cpp
+PARENT_SCOPE
+)

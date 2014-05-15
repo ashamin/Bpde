@@ -11,19 +11,23 @@ endif()
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/area)
 add_subdirectory(${PROJECT_SOURCE_DIR}/bsolvers)
+add_subdirectory(${PROJECT_SOURCE_DIR}/bbuilder)
 
 include_directories(${PROJECT_SOURCE_DIR}/area)
 include_directories(${PROJECT_SOURCE_DIR}/bsolvers)
+include_directories(${PROJECT_SOURCE_DIR}/bbuilder)
 
 
 set(BPDE_H
     ${AREA_H}
     ${BSOLVERS_H}
+    ${BBUILDER_H}
 )
 
 set(BPDE_SRC
     ${AREA_SRC}
     ${BSOLVERS_SRC}
+    ${BBUILDER_SRC}
 )
 
 add_executable(${PROJECT_NAME}

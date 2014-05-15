@@ -11,10 +11,11 @@ using namespace std;
 namespace Bpde
 {
 
-BSolverOmp::BSolverOmp(const BArea& area)
+BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
     :area(area),
      iterations(0),
-     time(0)
+     time(0),
+     threadsNum(threadsNum)
 {
     using namespace __bpde_omp;
 
@@ -41,6 +42,9 @@ BSolverOmp::BSolverOmp(const BArea& area)
 
     loc_c = new double[n];
     loc_d = new double[n];
+
+    omp_set_dynamic(0);
+    omp_set_num_threads(threadsNum);
 
     t = 0;
     for (int i =0; i<n; i++)
@@ -170,9 +174,6 @@ double* BSolverOmp::solve()
     using namespace __bpde_omp;
 
     double* tmp_v = new double[n];
-
-    omp_set_dynamic(0);
-    omp_set_num_threads(omp_get_max_threads());
 
     time = omp_get_wtime();
 

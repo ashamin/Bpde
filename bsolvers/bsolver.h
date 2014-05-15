@@ -3,12 +3,23 @@
 
 namespace Bpde {
 
+namespace ParallelizationMethod
+{
+enum ParallelizationMethod{
+    NONE = 0,
+    OPENMP = 1,
+    OPENCL = 2
+};
+} // namespace ParallelizationMethod
+
 /**
  *
  */
 class BSolver
 {
 public:
+    BSolver(){}
+    virtual ~BSolver(){}
     virtual double* solve() = 0;
     virtual double exec_time() = 0;
 };
