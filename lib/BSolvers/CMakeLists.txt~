@@ -1,5 +1,0 @@
-set(BSOLVERS_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/BSolver.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/BSolveromp.cpp
-PARENT_SCOPE
-)
