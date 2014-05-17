@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../bbuilder/bbuilder.h"
+#include "BBuilder.h"
 
 TEST (QualityTests, test1)
 {

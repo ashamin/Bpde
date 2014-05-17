@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(Bpde)
 
-FIND_PACKAGE( OpenMP REQUIRED)
+FIND_PACKAGE(OpenMP REQUIRED)
 if(OPENMP_FOUND)
     message("OPENMP FOUND")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -19,19 +19,14 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
 )
 
-add_executable(${PROJECT_NAME}
-    main.cpp
+add_library(bpde
+    SHARED
     ${BPDE_H}
     ${BPDE_SRC}
 )
 
 if(ENABLE_QUALITY_TESTING)
     message("Enabling tests")
-    add_library(bpde
-        SHARED
-        ${BPDE_H}
-        ${BPDE_SRC}
-    )
 
     add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 endif()
