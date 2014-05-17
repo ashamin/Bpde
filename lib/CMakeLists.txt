@@ -1,0 +1,8 @@
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/BSolvers)
+
+set(BPDE_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/BArea.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/BBuilder.cpp
+    ${BSOLVERS_SRC}
+PARENT_SCOPE
+)

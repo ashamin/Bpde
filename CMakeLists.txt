@@ -11,26 +11,12 @@ endif()
 
 option(ENABLE_QUALITY_TESTING "Enabling quality testing" OFF)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/area)
-add_subdirectory(${PROJECT_SOURCE_DIR}/bsolvers)
-add_subdirectory(${PROJECT_SOURCE_DIR}/bbuilder)
+add_subdirectory(${PROJECT_SOURCE_DIR}/include)
+add_subdirectory(${PROJECT_SOURCE_DIR}/lib)
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/area
-    ${PROJECT_SOURCE_DIR}/bsolvers
-    ${PROJECT_SOURCE_DIR}/bbuilder
-)
-
-set(BPDE_H
-    ${AREA_H}
-    ${BSOLVERS_H}
-    ${BBUILDER_H}
-)
-
-set(BPDE_SRC
-    ${AREA_SRC}
-    ${BSOLVERS_SRC}
-    ${BBUILDER_SRC}
+    ${PROJECT_SOURCE_DIR}/include/BSolvers
+    ${PROJECT_SOURCE_DIR}/include
 )
 
 add_executable(${PROJECT_NAME}

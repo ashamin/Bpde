@@ -1,7 +1,7 @@
 #ifndef BBUILDER_H
 #define BBUILDER_H
 
-#include "bsolveromp.h"
+#include "BSolverOmp.h"
 
 namespace Bpde
 {

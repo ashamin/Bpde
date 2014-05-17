@@ -1,4 +1,4 @@
-#include "bsolver.h"
+#include "BSolver.h"
 
 
 namespace Bpde

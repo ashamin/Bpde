@@ -1,0 +1,6 @@
+set(BSOLVERS_H
+    ${CMAKE_CURRENT_SOURCE_DIR}/BSolver.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/BSolveromp.h
+PARENT_SCOPE
+)
+

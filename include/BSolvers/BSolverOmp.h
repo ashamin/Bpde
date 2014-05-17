@@ -2,7 +2,7 @@
 #define BSOLVER_OMP_H
 
 #include "BArea.h"
-#include "bsolver.h"
+#include "BSolver.h"
 #include "omp.h"
 
 #include <iostream>

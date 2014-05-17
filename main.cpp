@@ -2,8 +2,8 @@
 
 //#include "defs.h"
 #include "BArea.h"
-#include "bsolveromp.h"
-#include "bbuilder.h"
+#include "BSolverOmp.h"
+#include "BBuilder.h"
 
 #include <cmath>
 // temporary main file of srw project
