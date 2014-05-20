@@ -4,7 +4,7 @@
 #include "BArea.h"
 #include "BSolver.h"
 
-#include "CL/cl.h"
+#include "CL/cl.hpp"
 #include "omp.h"
 
 #include <iostream>
@@ -15,7 +15,7 @@ namespace Bpde {
 class BSolverOcl : public BSolver
 {
 public:
-    BSolverOcl(const BArea& area, cl_device_id deviceId, int threadsNum);
+    BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum);
     virtual ~BSolverOcl();
 
     double* solve();
@@ -23,7 +23,10 @@ public:
     virtual double exec_time();
     int it_num();
 private:
+    inline cl_int initializeOpenCL();
     inline void prepareIteration();
+    inline cl_int setArgsToExplicitDerivativeKernel();
+
     int iterations;
     double time;
     int threadsNum;
@@ -34,17 +37,28 @@ private:
     double *V;
     double *mu;
     double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
-    double *loc_c, *loc_d, *b;
+    double *loc_c, *loc_d, *b, *tmp_v;
     int I, J, T;
     double dt;
     int n;
     double t;
 
-    cl_device_id deviceId;
-    cl_context context;
-    cl_command_queue commandQueue;
-    cl_program program;
-    cl_kernel kernel;
+    cl::Device device;
+    cl::Context context;
+    cl::CommandQueue commandQueue;
+    cl::Program program;
+    cl::Kernel explicitDerivativeKernel;
+    cl::Kernel implicitTDMAKernelbyX;
+    cl::Kernel implicitTDMAKernelbyY;
+
+    cl::Buffer HBuff, HaBuff;
+    cl::Buffer xBuff, yBuff;
+    cl::Buffer VBuff, muBuff;
+    cl::Buffer dx_lBuff, dx_dBuff, dx_uBuff;
+    cl::Buffer dy_lBuff, dy_dBuff, dy_uBuff;
+    cl::Buffer loc_cBuff, loc_dBuff, bBuff, tmp_vBuff;
+    cl::Buffer IBuff, JBuff, TBuff;
+    cl::Buffer dtBuff, nBuff, tBuff;
 };
 
 } // namespace Bpde

@@ -6,15 +6,17 @@
 #include <iostream>
 #include <fstream>
 
+#define PTR_FLAG CL_MEM_COPY_HOST_PTR
+
 using namespace std;
 
 namespace Bpde
 {
 
-BSolverOcl::BSolverOcl(const BArea& area, cl_device_id deviceId, int threadsNum)
+BSolverOcl::BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum)
     :area(area), iterations(0), time(0), threadsNum(threadsNum),
-     deviceId(deviceId), context(NULL), commandQueue(NULL), program(NULL),
-     kernel(NULL), t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
+     device(device), context(), commandQueue(), program(),
+     explicitDerivativeKernel(), t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
      H(NULL), Ha(NULL), b(NULL), V(NULL), mu(NULL), loc_c(NULL), loc_d(NULL),
      dx_d(NULL), dx_l(NULL), dx_u(NULL), dy_d(NULL), dy_l(NULL), dy_u(NULL)
 {
@@ -136,8 +138,113 @@ void BSolverOcl::prepareIteration()
         getMu(&mu[i], H[i]);
 }
 
+cl_int BSolverOcl::initializeOpenCL()
+{
+    cl_int ret = 0, err = 0;
+    context = cl::Context(device);
+    try {
+        std::ifstream file("kernels.cl");
+        std::string programString(std::istreambuf_iterator<char>(file),
+            (std::istreambuf_iterator<char>()));
+        cl::Program::Sources source(1, std::make_pair(programString.c_str(),
+            programString.length()+1));
+
+        program = cl::Program(context, source, &ret);
+        err |= ret;
+        std::vector<cl::Device> devices;
+        devices.push_back(device);
+        err |= program.build(devices);
+
+        commandQueue = cl::CommandQueue(context, device, 0, &ret);
+        err |= ret;
+
+        explicitDerivativeKernel = cl::Kernel(program, "explicitDerivative", &ret);
+        err |= ret;
+    } catch(...)
+    {
+        std::cout << "fuck you!" << std::endl;
+        return -1;
+    }
+
+    return err;
+}
+
+cl_int BSolverOcl::setArgsToExplicitDerivativeKernel()
+{
+    cl_int err = 0, ret = 0;
+    HBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, H, &ret);
+    err |= ret;
+    VBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, V, &ret);
+    err |= ret;
+    muBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, mu, &ret);
+    err |= ret;
+    dx_lBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dx_l, &ret);
+    err |= ret;
+    dx_dBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dx_d, &ret);
+    err |= ret;
+    dx_uBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dx_u, &ret);
+    err |= ret;
+    dy_lBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dy_l, &ret);
+    err |= ret;
+    dy_dBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dy_d, &ret);
+    err |= ret;
+    dy_uBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, dy_u, &ret);
+    err |= ret;
+    IBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(int), &I, &ret);
+    err |= ret;
+    JBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(int), &J, &ret);
+    err |= ret;
+    HaBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
+            sizeof(double)*n, Ha, &ret);
+    err |= ret;
+
+    err |= explicitDerivativeKernel.setArg(0, HBuff);
+    err |= explicitDerivativeKernel.setArg(1, VBuff);
+    err |= explicitDerivativeKernel.setArg(2, muBuff);
+    err |= explicitDerivativeKernel.setArg(3, dx_lBuff);
+    err |= explicitDerivativeKernel.setArg(4, dx_dBuff);
+    err |= explicitDerivativeKernel.setArg(5, dx_uBuff);
+    err |= explicitDerivativeKernel.setArg(6, dy_lBuff);
+    err |= explicitDerivativeKernel.setArg(7, dy_dBuff);
+    err |= explicitDerivativeKernel.setArg(8, dy_uBuff);
+    err |= explicitDerivativeKernel.setArg(9, IBuff);
+    err |= explicitDerivativeKernel.setArg(10, JBuff);
+    err |= explicitDerivativeKernel.setArg(11, HaBuff);
+}
+
 double* BSolverOcl::solve()
 {
+    if (initializeOpenCL() < 0)
+    {
+        std::cout << "OpenCL does not initialized" << std::endl;
+        exit(-1);
+    }
+
+    cl_int err;
+
     double* tmp_v = new double[n];
 
     time = omp_get_wtime();
@@ -150,17 +257,26 @@ double* BSolverOcl::solve()
         int i, j, kT, kH;
         double tmp;
 
-        for (i = 1; i < I - 1; i++)
-            for (j = 1; j < J - 1; j++) {
-                kT = i*J + j;
-                kH = j*I + i;
-                Ha[kH] =(
-                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
-                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
-                         V[kH]
-                        )
-                        / mu[kH];
-            }
+        setArgsToExplicitDerivativeKernel();
+
+        err = commandQueue.enqueueNDRangeKernel(explicitDerivativeKernel,
+                    cl::NDRange(1, 1), cl::NDRange(I-2, J-2));
+
+        err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
+                    sizeof(double)*n, static_cast<void*>(Ha));
+
+
+//        for (i = 1; i < I - 1; i++)
+//            for (j = 1; j < J - 1; j++) {
+//                kT = i*J + j;
+//                kH = j*I + i;
+//                Ha[kH] =(
+//                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
+//                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
+//                         V[kH]
+//                        )
+//                        / mu[kH];
+//            }
 
         // неявная прогонка по X
         for (i = 2; i < I - 2; i++)
@@ -209,6 +325,8 @@ double* BSolverOcl::solve()
         iterations++;
         if (iterations % 10000 == 0)
             std::cout << iterations << std::endl;
+
+//        break;
     }
 
     log_matrix("H", Ha, I, J);

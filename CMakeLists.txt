@@ -29,6 +29,20 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
 )
 
+###################################
+add_executable(Bpde
+    main.cpp
+    ${BPDE_H}
+    ${BPDE_SRC}
+)
+
+if(OPENCL_FOUND)
+    target_link_libraries(Bpde
+        ${OPENCL_LIBRARIES}
+    )
+endif()
+####################################
+
 add_library(bpde
     SHARED
     ${BPDE_H}
