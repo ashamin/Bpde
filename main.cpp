@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
 
 // maintain usage
 //    BSolver* solver = BSolverBuilder::getInstance()->
-//            getSolver("xyz0.txt", ParallelizationMethod::OPENMP, 1);
+//            getSolver("xyz0.txt", ParallelizationMethod::OPENMP);
 //    solver->solve();
 //    std::cout << solver->exec_time() << std::endl;
 
@@ -51,8 +51,7 @@ int main(int argc, char **argv) {
 
 //    delete solver;
 
-
-
+// opencl usage 1
     std::vector<cl::Platform> platforms;
     std::vector<cl::Device> devices;
 
@@ -68,6 +67,17 @@ int main(int argc, char **argv) {
     BSolver* solver = new BSolverOcl(area, devices[0], 1);
     solver->solve();
     std::cout << solver->exec_time() << std::endl;
+
+
+//    for (int i = 0; i<10; i++)
+//    {
+//        BSolver* solver = BSolverBuilder::getInstance()->
+//                getSolver("xyz0.txt", ParallelizationMethod::OPENMP, 6);
+//        solver->solve();
+//        std::cout << solver->exec_time() << std::endl;
+
+//        delete solver;
+//    }
 
 
     return 0;

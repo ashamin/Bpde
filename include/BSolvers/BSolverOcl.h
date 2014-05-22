@@ -23,9 +23,12 @@ public:
     virtual double exec_time();
     int it_num();
 private:
-    inline cl_int initializeOpenCL();
+    inline cl_int initOpenCL();
+    inline cl_int initConstantBuffs();
     inline void prepareIteration();
     inline cl_int setArgsToExplicitDerivativeKernel();
+    inline cl_int setArgsToHydraulicConductivityKernelX();
+    inline cl_int setArgsToHydraulicConductivityKernelY();
 
     int iterations;
     double time;
@@ -48,6 +51,8 @@ private:
     cl::CommandQueue commandQueue;
     cl::Program program;
     cl::Kernel explicitDerivativeKernel;
+    cl::Kernel hydraulicConductivityKernelX;
+    cl::Kernel hydraulicConductivityKernelY;
     cl::Kernel implicitTDMAKernelbyX;
     cl::Kernel implicitTDMAKernelbyY;
 
@@ -59,6 +64,7 @@ private:
     cl::Buffer loc_cBuff, loc_dBuff, bBuff, tmp_vBuff;
     cl::Buffer IBuff, JBuff, TBuff;
     cl::Buffer dtBuff, nBuff, tBuff;
+    cl::Buffer zcBuff, zfBuff, kxBuff, kyBuff;
 };
 
 } // namespace Bpde

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 
-#define PTR_FLAG CL_MEM_COPY_HOST_PTR
+#define PTR_FLAG CL_MEM_USE_HOST_PTR
 
 using namespace std;
 
@@ -16,7 +16,8 @@ namespace Bpde
 BSolverOcl::BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum)
     :area(area), iterations(0), time(0), threadsNum(threadsNum),
      device(device), context(), commandQueue(), program(),
-     explicitDerivativeKernel(), t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
+     explicitDerivativeKernel(), hydraulicConductivityKernelX(), hydraulicConductivityKernelY(),
+     t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
      H(NULL), Ha(NULL), b(NULL), V(NULL), mu(NULL), loc_c(NULL), loc_d(NULL),
      dx_d(NULL), dx_l(NULL), dx_u(NULL), dy_d(NULL), dy_l(NULL), dy_u(NULL)
 {
@@ -62,11 +63,25 @@ BSolverOcl::~BSolverOcl()
 void BSolverOcl::prepareIteration()
 {
     int i, j, k, kT, kH;
+    cl_int err = 0;
 
     // пересчитываем функцию V а каждом шаге
     for (j = 1; j<J-1; j++)
         for (i = 1; i<I-1; i++)
             V[i + I*j] = area.V(area.x[i], area.y[j], t);
+
+    // формируем Tx на каждом шаге
+    setArgsToHydraulicConductivityKernelX();
+
+    err = commandQueue.enqueueNDRangeKernel(hydraulicConductivityKernelX,
+                cl::NDRange(2, 2), cl::NDRange(J-4, I-4));
+
+    err = commandQueue.enqueueReadBuffer(dx_lBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_l));
+    err = commandQueue.enqueueReadBuffer(dx_dBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_d));
+    err = commandQueue.enqueueReadBuffer(dx_uBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_u));
 
     for (j = 2; j<J-2; j++) {
         k = j*I + 1;
@@ -79,39 +94,6 @@ void BSolverOcl::prepareIteration()
         dx_d[k] = 1;
         dx_u[k] = 0;
     }
-
-    // формируем Tx на каждом шаге
-    for (j = 2; j<J-2; j++) {
-        for (i = 2; i<I-2; i++){
-            k = j*I+i;
-//        for (k = j*I+2; k<j*I+I-2; k++) {
-//            i = k-j*I;
-            dx_l[k] = Tx((H[k-1] + H[k])/2) /
-                    ((x[i] - x[i-1])
-                    * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
-                    );
-            dx_u[k] = Tx((H[k+1] + H[k])/2) /
-                    ((x[i+1] - x[i])
-                    * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
-                    );
-            dx_d[k] = (-Tx((H[k+1] + H[k])/2) / (x[i+1] - x[i]) -
-                        Tx((H[k-1] + H[k])/2) / (x[i] - x[i-1]))
-                    / ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2);
-        }
-    }
-
-    for (i = 2; i < I - 2; i++) {
-        int kT = i*J + 1;
-        dy_l[kT] = 0;
-        dy_d[kT] = 1;
-        dy_u[kT] = -1;
-
-        kT = i*J + (J-2);
-        dy_l[kT] = -1;
-        dy_d[kT] = 1;
-        dy_u[kT] = 0;
-    }
-
 
     // формируем Ty на каждом шаге
     for (i = 2; i < I - 2; i++) {
@@ -132,18 +114,30 @@ void BSolverOcl::prepareIteration()
         }
     }
 
+    for (i = 2; i < I - 2; i++) {
+        int kT = i*J + 1;
+        dy_l[kT] = 0;
+        dy_d[kT] = 1;
+        dy_u[kT] = -1;
+
+        kT = i*J + (J-2);
+        dy_l[kT] = -1;
+        dy_d[kT] = 1;
+        dy_u[kT] = 0;
+    }
 
     // вычисляем зачения mu на всей области (с буфером)
     for (i = I; i<n-I; i++)
         getMu(&mu[i], H[i]);
 }
 
-cl_int BSolverOcl::initializeOpenCL()
+cl_int BSolverOcl::initOpenCL()
 {
     cl_int ret = 0, err = 0;
     context = cl::Context(device);
     try {
-        std::ifstream file("kernels.cl");
+//        std::ifstream file("kernels.cl");
+        std::ifstream file("/home/ashamin/diploma/src/Bpde/lib/BSolvers/kernels.cl");
         std::string programString(std::istreambuf_iterator<char>(file),
             (std::istreambuf_iterator<char>()));
         cl::Program::Sources source(1, std::make_pair(programString.c_str(),
@@ -160,6 +154,8 @@ cl_int BSolverOcl::initializeOpenCL()
 
         explicitDerivativeKernel = cl::Kernel(program, "explicitDerivative", &ret);
         err |= ret;
+        hydraulicConductivityKernelX = cl::Kernel(program, "hydraulicConductivityKernelX", &ret);
+        err |= ret;
     } catch(...)
     {
         std::cout << "fuck you!" << std::endl;
@@ -169,75 +165,9 @@ cl_int BSolverOcl::initializeOpenCL()
     return err;
 }
 
-cl_int BSolverOcl::setArgsToExplicitDerivativeKernel()
-{
-    cl_int err = 0, ret = 0;
-    HBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, H, &ret);
-    err |= ret;
-    VBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, V, &ret);
-    err |= ret;
-    muBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, mu, &ret);
-    err |= ret;
-    dx_lBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dx_l, &ret);
-    err |= ret;
-    dx_dBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dx_d, &ret);
-    err |= ret;
-    dx_uBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dx_u, &ret);
-    err |= ret;
-    dy_lBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dy_l, &ret);
-    err |= ret;
-    dy_dBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dy_d, &ret);
-    err |= ret;
-    dy_uBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, dy_u, &ret);
-    err |= ret;
-    IBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(int), &I, &ret);
-    err |= ret;
-    JBuff = cl::Buffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(int), &J, &ret);
-    err |= ret;
-    HaBuff = cl::Buffer(context,
-            CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
-            sizeof(double)*n, Ha, &ret);
-    err |= ret;
-
-    err |= explicitDerivativeKernel.setArg(0, HBuff);
-    err |= explicitDerivativeKernel.setArg(1, VBuff);
-    err |= explicitDerivativeKernel.setArg(2, muBuff);
-    err |= explicitDerivativeKernel.setArg(3, dx_lBuff);
-    err |= explicitDerivativeKernel.setArg(4, dx_dBuff);
-    err |= explicitDerivativeKernel.setArg(5, dx_uBuff);
-    err |= explicitDerivativeKernel.setArg(6, dy_lBuff);
-    err |= explicitDerivativeKernel.setArg(7, dy_dBuff);
-    err |= explicitDerivativeKernel.setArg(8, dy_uBuff);
-    err |= explicitDerivativeKernel.setArg(9, IBuff);
-    err |= explicitDerivativeKernel.setArg(10, JBuff);
-    err |= explicitDerivativeKernel.setArg(11, HaBuff);
-}
-
 double* BSolverOcl::solve()
 {
-    if (initializeOpenCL() < 0)
+    if (initOpenCL() < 0)
     {
         std::cout << "OpenCL does not initialized" << std::endl;
         exit(-1);
@@ -264,19 +194,6 @@ double* BSolverOcl::solve()
 
         err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
                     sizeof(double)*n, static_cast<void*>(Ha));
-
-
-//        for (i = 1; i < I - 1; i++)
-//            for (j = 1; j < J - 1; j++) {
-//                kT = i*J + j;
-//                kH = j*I + i;
-//                Ha[kH] =(
-//                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
-//                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
-//                         V[kH]
-//                        )
-//                        / mu[kH];
-//            }
 
         // неявная прогонка по X
         for (i = 2; i < I - 2; i++)
@@ -342,5 +259,128 @@ double BSolverOcl::exec_time()
 {
     return time;
 }
+
+cl_int BSolverOcl::setArgsToExplicitDerivativeKernel()
+{
+    cl_int err = 0, ret = 0;
+    HBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, H, &ret);
+    err |= ret;
+    VBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, V, &ret);
+    err |= ret;
+    muBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, mu, &ret);
+    err |= ret;
+    dx_lBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_l, &ret);
+    err |= ret;
+    dx_dBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_d, &ret);
+    err |= ret;
+    dx_uBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_u, &ret);
+    err |= ret;
+    dy_lBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_l, &ret);
+    err |= ret;
+    dy_dBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_d, &ret);
+    err |= ret;
+    dy_uBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_u, &ret);
+    err |= ret;
+    IBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(int), &I, &ret);
+    err |= ret;
+    JBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(int), &J, &ret);
+    err |= ret;
+    HaBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, Ha, &ret);
+    err |= ret;
+
+    err |= explicitDerivativeKernel.setArg(0, HBuff);
+    err |= explicitDerivativeKernel.setArg(1, VBuff);
+    err |= explicitDerivativeKernel.setArg(2, muBuff);
+    err |= explicitDerivativeKernel.setArg(3, dx_lBuff);
+    err |= explicitDerivativeKernel.setArg(4, dx_dBuff);
+    err |= explicitDerivativeKernel.setArg(5, dx_uBuff);
+    err |= explicitDerivativeKernel.setArg(6, dy_lBuff);
+    err |= explicitDerivativeKernel.setArg(7, dy_dBuff);
+    err |= explicitDerivativeKernel.setArg(8, dy_uBuff);
+    err |= explicitDerivativeKernel.setArg(9, IBuff);
+    err |= explicitDerivativeKernel.setArg(10, JBuff);
+    err |= explicitDerivativeKernel.setArg(11, HaBuff);
+}
+
+cl_int BSolverOcl::setArgsToHydraulicConductivityKernelX()
+{
+    cl_int err = 0, ret = 0;
+    HBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*n, H, &ret);
+    err |= ret;
+    xBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*I, x, &ret);
+    err |= ret;
+    IBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(int), &I, &ret);
+    err |= ret;
+    JBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(int), &J, &ret);
+    err |= ret;
+    zcBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double), const_cast<double*>(&zc), &ret);
+    err |= ret;
+    zfBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double), const_cast<double*>(&zf), &ret);
+    err |= ret;
+    kxBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double), const_cast<double*>(&kx), &ret);
+    err |= ret;
+    dx_lBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_l, &ret);
+    err |= ret;
+    dx_dBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_d, &ret);
+    err |= ret;
+    dx_uBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dx_u, &ret);
+    err |= ret;
+
+    err |= hydraulicConductivityKernelX.setArg(0, HBuff);
+    err |= hydraulicConductivityKernelX.setArg(1, xBuff);
+    err |= hydraulicConductivityKernelX.setArg(2, IBuff);
+    err |= hydraulicConductivityKernelX.setArg(3, JBuff);
+    err |= hydraulicConductivityKernelX.setArg(4, zcBuff);
+    err |= hydraulicConductivityKernelX.setArg(5, zfBuff);
+    err |= hydraulicConductivityKernelX.setArg(6, kxBuff);
+    err |= hydraulicConductivityKernelX.setArg(7, dx_lBuff);
+    err |= hydraulicConductivityKernelX.setArg(8, dx_dBuff);
+    err |= hydraulicConductivityKernelX.setArg(9, dx_uBuff);
+}
+
 
 } // namespace Bpde

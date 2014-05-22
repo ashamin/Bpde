@@ -8,7 +8,8 @@ namespace Bpde {
 
 namespace ParallelizationMethod
 {
-enum ParallelizationMethod{
+enum ParallelizationMethod
+{
     NONE = 0,
     OPENMP = 1,
     OPENCL = 2
