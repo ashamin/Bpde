@@ -27,24 +27,40 @@ __kernel void explicitDerivative(__global double *H, __global double *V, __globa
             / mu[kH];
 }
 
-__kernel void hydraulicConductivityKernelX(__global double *H, __global double *x, 
-        __global int *I, __global int *J, __global double *zc, __global double *zf, __global double *kx,
-        __global double *dx_l, __global double *dx_d, __global double *dx_u)
+__kernel void hydraulicConductivityKernel(__global double *H, __global double *x,
+        __global double *y, __global int *I, __global int *J, __global double *zc, 
+        __global double *zf, __global double *kx, __global double *ky,
+        __global double *dx_l, __global double *dx_d, __global double *dx_u,
+        __global double *dy_l, __global double *dy_d, __global double *dy_u)
 {
     int j = get_global_id(0);
     int i = get_global_id(1);
-    int k = j**I+i;
-    dx_l[k] = Tx((H[k-1] + H[k])/2, *zc, *zf, *kx) /
+    int kH = j**I + i;
+    int kT = i**J + j;
+    dx_l[kH] = Tx((H[kH-1] + H[kH])/2, *zc, *zf, *kx) /
             ((x[i] - x[i-1])
             * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
             );
-    dx_u[k] = Tx((H[k+1] + H[k])/2, *zc, *zf, *kx) /
+    dx_u[kH] = Tx((H[kH+1] + H[kH])/2, *zc, *zf, *kx) /
             ((x[i+1] - x[i])
             * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
             );
-    dx_d[k] = (-Tx((H[k+1] + H[k])/2, *zc, *zf, *kx) / (x[i+1] - x[i]) -
-                Tx((H[k-1] + H[k])/2, *zc, *zf, *kx) / (x[i] - x[i-1]))
-            / ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2); 
+    dx_d[kH] = (-Tx((H[kH+1] + H[kH])/2, *zc, *zf, *kx) / (x[i+1] - x[i]) -
+                Tx((H[kH-1] + H[kH])/2, *zc, *zf, *kx) / (x[i] - x[i-1]))
+            / ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2);
+            
+    dy_l[kT] = Ty((H[kH-*I] + H[kH])/2, *zc, *zf, *ky) /
+            ((y[j] - y[j-1])
+            * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
+            );
+    dy_u[kT] = Ty((H[kH+*I] + H[kH])/2, *zc, *zf, *ky) /
+            ((y[j+1] - y[j])
+            * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
+            );
+    dy_d[kT] =(-Ty((H[kH+*I] + H[kH])/2, *zc, *zf, *ky) / (y[j+1] - y[j]) -
+            Ty((H[kH-*I] + H[kH])/2, *zc, *zf, *ky) / (y[j] - y[j-1]))
+            / ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2);
+            
 }
 
 /// переписать, чтобы работало!!

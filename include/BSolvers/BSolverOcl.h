@@ -27,8 +27,7 @@ private:
     inline cl_int initConstantBuffs();
     inline void prepareIteration();
     inline cl_int setArgsToExplicitDerivativeKernel();
-    inline cl_int setArgsToHydraulicConductivityKernelX();
-    inline cl_int setArgsToHydraulicConductivityKernelY();
+    inline cl_int setArgsToHydraulicConductivityKernel();
 
     int iterations;
     double time;
@@ -51,8 +50,7 @@ private:
     cl::CommandQueue commandQueue;
     cl::Program program;
     cl::Kernel explicitDerivativeKernel;
-    cl::Kernel hydraulicConductivityKernelX;
-    cl::Kernel hydraulicConductivityKernelY;
+    cl::Kernel hydraulicConductivityKernel;
     cl::Kernel implicitTDMAKernelbyX;
     cl::Kernel implicitTDMAKernelbyY;
 

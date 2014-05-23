@@ -16,7 +16,7 @@ namespace Bpde
 BSolverOcl::BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum)
     :area(area), iterations(0), time(0), threadsNum(threadsNum),
      device(device), context(), commandQueue(), program(),
-     explicitDerivativeKernel(), hydraulicConductivityKernelX(), hydraulicConductivityKernelY(),
+     explicitDerivativeKernel(), hydraulicConductivityKernel(),
      t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
      H(NULL), Ha(NULL), b(NULL), V(NULL), mu(NULL), loc_c(NULL), loc_d(NULL),
      dx_d(NULL), dx_l(NULL), dx_u(NULL), dy_d(NULL), dy_l(NULL), dy_u(NULL)
@@ -70,10 +70,10 @@ void BSolverOcl::prepareIteration()
         for (i = 1; i<I-1; i++)
             V[i + I*j] = area.V(area.x[i], area.y[j], t);
 
-    // формируем Tx на каждом шаге
-    setArgsToHydraulicConductivityKernelX();
+    // формируем Tx и Ty на каждом шаге
+    setArgsToHydraulicConductivityKernel();
 
-    err = commandQueue.enqueueNDRangeKernel(hydraulicConductivityKernelX,
+    err = commandQueue.enqueueNDRangeKernel(hydraulicConductivityKernel,
                 cl::NDRange(2, 2), cl::NDRange(J-4, I-4));
 
     err = commandQueue.enqueueReadBuffer(dx_lBuff, CL_TRUE, 0,
@@ -82,6 +82,14 @@ void BSolverOcl::prepareIteration()
                 sizeof(double)*n, static_cast<void*>(dx_d));
     err = commandQueue.enqueueReadBuffer(dx_uBuff, CL_TRUE, 0,
                 sizeof(double)*n, static_cast<void*>(dx_u));
+
+    err = commandQueue.enqueueReadBuffer(dy_lBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_l));
+    err = commandQueue.enqueueReadBuffer(dy_dBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_d));
+    err = commandQueue.enqueueReadBuffer(dy_uBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_u));
+
 
     for (j = 2; j<J-2; j++) {
         k = j*I + 1;
@@ -96,23 +104,6 @@ void BSolverOcl::prepareIteration()
     }
 
     // формируем Ty на каждом шаге
-    for (i = 2; i < I - 2; i++) {
-        for (j = 2; j < J - 2; j++) {
-            kH = j*I+i;
-            kT = i*J + j;
-            dy_l[kT] = Ty((H[kH-I] + H[kH])/2) /
-                    ((y[j] - y[j-1])
-                    * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
-                    );
-            dy_u[kT] = Ty((H[kH+I] + H[kH])/2) /
-                    ((y[j+1] - y[j])
-                    * ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2)
-                    );
-            dy_d[kT] =(-Ty((H[kH+I] + H[kH])/2) / (y[j+1] - y[j]) -
-                    Ty((H[kH-I] + H[kH])/2) / (y[j] - y[j-1]))
-                    / ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2);
-        }
-    }
 
     for (i = 2; i < I - 2; i++) {
         int kT = i*J + 1;
@@ -154,7 +145,7 @@ cl_int BSolverOcl::initOpenCL()
 
         explicitDerivativeKernel = cl::Kernel(program, "explicitDerivative", &ret);
         err |= ret;
-        hydraulicConductivityKernelX = cl::Kernel(program, "hydraulicConductivityKernelX", &ret);
+        hydraulicConductivityKernel = cl::Kernel(program, "hydraulicConductivityKernel", &ret);
         err |= ret;
     } catch(...)
     {
@@ -326,7 +317,7 @@ cl_int BSolverOcl::setArgsToExplicitDerivativeKernel()
     err |= explicitDerivativeKernel.setArg(11, HaBuff);
 }
 
-cl_int BSolverOcl::setArgsToHydraulicConductivityKernelX()
+cl_int BSolverOcl::setArgsToHydraulicConductivityKernel()
 {
     cl_int err = 0, ret = 0;
     HBuff = cl::Buffer(context,
@@ -336,6 +327,10 @@ cl_int BSolverOcl::setArgsToHydraulicConductivityKernelX()
     xBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
             sizeof(double)*I, x, &ret);
+    err |= ret;
+    yBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double)*J, y, &ret);
     err |= ret;
     IBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
@@ -357,6 +352,10 @@ cl_int BSolverOcl::setArgsToHydraulicConductivityKernelX()
             CL_MEM_READ_ONLY | PTR_FLAG,
             sizeof(double), const_cast<double*>(&kx), &ret);
     err |= ret;
+    kyBuff = cl::Buffer(context,
+            CL_MEM_READ_ONLY | PTR_FLAG,
+            sizeof(double), const_cast<double*>(&ky), &ret);
+    err |= ret;
     dx_lBuff = cl::Buffer(context,
             CL_MEM_WRITE_ONLY | PTR_FLAG,
             sizeof(double)*n, dx_l, &ret);
@@ -369,17 +368,34 @@ cl_int BSolverOcl::setArgsToHydraulicConductivityKernelX()
             CL_MEM_WRITE_ONLY | PTR_FLAG,
             sizeof(double)*n, dx_u, &ret);
     err |= ret;
+    dy_lBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_l, &ret);
+    err |= ret;
+    dy_dBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_d, &ret);
+    err |= ret;
+    dy_uBuff = cl::Buffer(context,
+            CL_MEM_WRITE_ONLY | PTR_FLAG,
+            sizeof(double)*n, dy_u, &ret);
+    err |= ret;
 
-    err |= hydraulicConductivityKernelX.setArg(0, HBuff);
-    err |= hydraulicConductivityKernelX.setArg(1, xBuff);
-    err |= hydraulicConductivityKernelX.setArg(2, IBuff);
-    err |= hydraulicConductivityKernelX.setArg(3, JBuff);
-    err |= hydraulicConductivityKernelX.setArg(4, zcBuff);
-    err |= hydraulicConductivityKernelX.setArg(5, zfBuff);
-    err |= hydraulicConductivityKernelX.setArg(6, kxBuff);
-    err |= hydraulicConductivityKernelX.setArg(7, dx_lBuff);
-    err |= hydraulicConductivityKernelX.setArg(8, dx_dBuff);
-    err |= hydraulicConductivityKernelX.setArg(9, dx_uBuff);
+    err |= hydraulicConductivityKernel.setArg(0, HBuff);
+    err |= hydraulicConductivityKernel.setArg(1, xBuff);
+    err |= hydraulicConductivityKernel.setArg(2, yBuff);
+    err |= hydraulicConductivityKernel.setArg(3, IBuff);
+    err |= hydraulicConductivityKernel.setArg(4, JBuff);
+    err |= hydraulicConductivityKernel.setArg(5, zcBuff);
+    err |= hydraulicConductivityKernel.setArg(6, zfBuff);
+    err |= hydraulicConductivityKernel.setArg(7, kxBuff);
+    err |= hydraulicConductivityKernel.setArg(8, kyBuff);
+    err |= hydraulicConductivityKernel.setArg(9, dx_lBuff);
+    err |= hydraulicConductivityKernel.setArg(10, dx_dBuff);
+    err |= hydraulicConductivityKernel.setArg(11, dx_uBuff);
+    err |= hydraulicConductivityKernel.setArg(12, dy_lBuff);
+    err |= hydraulicConductivityKernel.setArg(13, dy_dBuff);
+    err |= hydraulicConductivityKernel.setArg(14, dy_uBuff);
 }
 
 
