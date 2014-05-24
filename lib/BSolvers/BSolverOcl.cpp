@@ -90,7 +90,6 @@ void BSolverOcl::prepareIteration()
     err = commandQueue.enqueueReadBuffer(dy_uBuff, CL_TRUE, 0,
                 sizeof(double)*n, static_cast<void*>(dy_u));
 
-
     for (j = 2; j<J-2; j++) {
         k = j*I + 1;
         dx_l[k] = 0;
@@ -178,13 +177,26 @@ double* BSolverOcl::solve()
         int i, j, kT, kH;
         double tmp;
 
-        setArgsToExplicitDerivativeKernel();
+//        setArgsToExplicitDerivativeKernel();
 
-        err = commandQueue.enqueueNDRangeKernel(explicitDerivativeKernel,
-                    cl::NDRange(1, 1), cl::NDRange(I-2, J-2));
+//        err = commandQueue.enqueueNDRangeKernel(explicitDerivativeKernel,
+//                    cl::NDRange(1, 1), cl::NDRange(I-2, J-2));
 
-        err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
-                    sizeof(double)*n, static_cast<void*>(Ha));
+//        err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
+//                    sizeof(double)*n, static_cast<void*>(Ha));
+
+        for (i = 1; i < I - 1; i++)
+            for (j = 1; j < J - 1; j++) {
+                kT = i*J + j;
+                kH = j*I + i;
+                Ha[kH] =(
+                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
+                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
+                         V[kH]
+                        )
+                        / mu[kH];
+            }
+
 
         // неявная прогонка по X
         for (i = 2; i < I - 2; i++)
