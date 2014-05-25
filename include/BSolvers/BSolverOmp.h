@@ -14,7 +14,7 @@ namespace __bpde_omp {
     static double *mu;
     static double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
     static double *loc_c, *loc_d, *b;
-    static int I, J, T;
+    static int I, J;
     static double dt;
     static int n;
     static double t;
@@ -30,13 +30,34 @@ public:
 
     virtual double exec_time();
     int it_num();
-private:
+
+    virtual void addExtraIterations(int its);
+    virtual void setTimeStep(double dt);
+
+private:    
     inline void prepareIteration();
+    inline double Tx(double H)
+    {
+        return (H >= area.zc)?area.kx*(area.zc - area.zf):((H < area.zf)?0:area.kx*(H - area.zf));
+    }
+
+    inline double Ty(double H)
+    {
+        return (H >= area.zc)?area.ky*(area.zc - area.zf):((H < area.zf)?0:area.ky*(H - area.zf));
+    }
+
+    inline void getMu(double* mu, double H)
+    {
+        *mu = (H >= area.zc)?area.mu1:area.mu2;
+    }
+
     int iterations;
     double time;
     int threadsNum;
 
     BArea area;
+
+
 };
 
 }

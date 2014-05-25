@@ -2,6 +2,7 @@
 #define BBUILDER_H
 
 #include "BSolverOmp.h"
+#include "BSolverOcl.h"
 
 namespace Bpde
 {
@@ -13,6 +14,8 @@ public:
 
     BSolver* getSolver(std::string file, ParallelizationMethod::ParallelizationMethod pMethod =
             ParallelizationMethod::OPENMP, int threadsNum = omp_get_max_threads());
+    BSolver* getSolver(std::string file, ParallelizationMethod::ParallelizationMethod pMethod,
+            std::vector<cl::Device>& devices);
 
 private:
     BSolverBuilder();

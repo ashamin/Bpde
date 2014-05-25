@@ -15,13 +15,16 @@ namespace Bpde {
 class BSolverOcl : public BSolver
 {
 public:
-    BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum);
+    BSolverOcl(const BArea& area, std::vector<cl::Device>& devices);
     virtual ~BSolverOcl();
 
     double* solve();
 
     virtual double exec_time();
     int it_num();
+
+    virtual void addExtraIterations(int its);
+    virtual void setTimeStep(double dt);
 private:
     inline cl_int initOpenCL();
     inline cl_int initConstantBuffs();
@@ -29,9 +32,14 @@ private:
     inline cl_int setArgsToExplicitDerivativeKernel();
     inline cl_int setArgsToHydraulicConductivityKernel();
 
+    inline void getMu(double* mu, double H)
+    {
+        *mu = (H >= area.zc)?area.mu1:area.mu2;
+    }
+
     int iterations;
     double time;
-    int threadsNum;
+
     BArea area;
 
     double *H, *Ha;
@@ -45,7 +53,7 @@ private:
     int n;
     double t;
 
-    cl::Device device;
+    std::vector<cl::Device> devices;
     cl::Context context;
     cl::CommandQueue commandQueue;
     cl::Program program;

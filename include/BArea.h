@@ -31,6 +31,10 @@ public:
     double* y;
     int I, J, T;
 
+    double zc, zf;//= 160, zf = 90;
+    double mu1, mu2;//= 0.16, mu2 = 0.16;
+    double kx, ky;//= (double)1/(3600*24), ky = (double)1/(3600*24);
+
 //private:
     double dt;
 };

@@ -13,9 +13,9 @@ using namespace std;
 namespace Bpde
 {
 
-BSolverOcl::BSolverOcl(const BArea& area, const cl::Device& device, int threadsNum)
-    :area(area), iterations(0), time(0), threadsNum(threadsNum),
-     device(device), context(), commandQueue(), program(),
+BSolverOcl::BSolverOcl(const BArea& area, std::vector<cl::Device>& devices)
+    :area(area), iterations(0), time(0),
+     devices(devices), context(), commandQueue(), program(),
      explicitDerivativeKernel(), hydraulicConductivityKernel(),
      t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
      H(NULL), Ha(NULL), b(NULL), V(NULL), mu(NULL), loc_c(NULL), loc_d(NULL),
@@ -124,7 +124,7 @@ void BSolverOcl::prepareIteration()
 cl_int BSolverOcl::initOpenCL()
 {
     cl_int ret = 0, err = 0;
-    context = cl::Context(device);
+    context = cl::Context(devices);
     try {
 //        std::ifstream file("kernels.cl");
         std::ifstream file("/home/ashamin/diploma/src/Bpde/lib/BSolvers/kernels.cl");
@@ -135,11 +135,9 @@ cl_int BSolverOcl::initOpenCL()
 
         program = cl::Program(context, source, &ret);
         err |= ret;
-        std::vector<cl::Device> devices;
-        devices.push_back(device);
         err |= program.build(devices);
 
-        commandQueue = cl::CommandQueue(context, device, 0, &ret);
+        commandQueue = cl::CommandQueue(context, 0, &ret);
         err |= ret;
 
         explicitDerivativeKernel = cl::Kernel(program, "explicitDerivative", &ret);
@@ -169,7 +167,7 @@ double* BSolverOcl::solve()
 
     time = omp_get_wtime();
 
-    while (t<(area.dt*(area.T-1))){
+    while (iterations < area.T){
 
         prepareIteration();
 
@@ -354,19 +352,19 @@ cl_int BSolverOcl::setArgsToHydraulicConductivityKernel()
     err |= ret;
     zcBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
-            sizeof(double), const_cast<double*>(&zc), &ret);
+            sizeof(double), &area.zc, &ret);
     err |= ret;
     zfBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
-            sizeof(double), const_cast<double*>(&zf), &ret);
+            sizeof(double), &area.zf, &ret);
     err |= ret;
     kxBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
-            sizeof(double), const_cast<double*>(&kx), &ret);
+            sizeof(double), &area.kx, &ret);
     err |= ret;
     kyBuff = cl::Buffer(context,
             CL_MEM_READ_ONLY | PTR_FLAG,
-            sizeof(double), const_cast<double*>(&ky), &ret);
+            sizeof(double), &area.ky, &ret);
     err |= ret;
     dx_lBuff = cl::Buffer(context,
             CL_MEM_WRITE_ONLY | PTR_FLAG,
@@ -408,6 +406,16 @@ cl_int BSolverOcl::setArgsToHydraulicConductivityKernel()
     err |= hydraulicConductivityKernel.setArg(12, dy_lBuff);
     err |= hydraulicConductivityKernel.setArg(13, dy_dBuff);
     err |= hydraulicConductivityKernel.setArg(14, dy_uBuff);
+}
+
+void BSolverOcl::addExtraIterations(int its)
+{
+    area.T += its;
+}
+
+void BSolverOcl::setTimeStep(double dt)
+{
+    this->dt = dt;
 }
 
 

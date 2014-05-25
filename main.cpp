@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
 //    delete solver;
 
-//    solver = BSolverBuilder::getInstance()->
+//    BSolver* solver = BSolverBuilder::getInstance()->
 //                getSolver("xyz0.txt", ParallelizationMethod::OPENMP, 2);
 //    solver->solve();
 //    std::cout << solver->exec_time() << std::endl;
@@ -52,21 +52,29 @@ int main(int argc, char **argv) {
 //    delete solver;
 
 // opencl usage 1
-    std::vector<cl::Platform> platforms;
-    std::vector<cl::Device> devices;
+//    std::vector<cl::Platform> platforms;
+//    std::vector<cl::Device> devices;
 
-    try{
-        cl::Platform::get(&platforms);
-        platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
-    }
-    catch(...) {
-    }
+//    try{
+//        cl::Platform::get(&platforms);
+//        platforms[0].getDevices(CL_DEVICE_TYPE_CPU, &devices);
+//    }
+//    catch(...) {
+//    }
 
 
-    BArea area("xyz0.txt");
-    BSolver* solver = new BSolverOcl(area, devices[0], 1);
+//    BArea area("xyz0.txt");
+//    BSolver* solver = new BSolverOcl(area, devices);
+//    solver->solve();
+//    std::cout << solver->exec_time() << std::endl;
+
+// maintaint opencl usage
+    BSolver* solver = BSolverBuilder::getInstance()->
+            getSolver("xyz0.txt", ParallelizationMethod::OPENCL);
     solver->solve();
+
     std::cout << solver->exec_time() << std::endl;
+    delete solver;
 
 
 //    for (int i = 0; i<10; i++)

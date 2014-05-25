@@ -17,24 +17,6 @@ enum ParallelizationMethod
 } // namespace ParallelizationMethod
 
 // z ceiling and z floor
-const double zc = 160, zf = 90;
-const double mu1 = 0.16, mu2 = 0.16;
-const double kx = (double)1/(3600*24), ky = (double)1/(3600*24);
-
-inline void getMu(double* mu, double H)
-{
-    *mu = (H >= zc)?mu1:mu2;
-}
-
-inline double Tx(double H)
-{
-    return (H >= zc)?kx*(zc - zf):((H < zf)?0:kx*(H - zf));
-}
-
-inline double Ty(double H)
-{
-    return (H >= zc)?ky*(zc - zf):((H < zf)?0:ky*(H - zf));
-}
 
 inline void log_matrix(char *name, double* var, int xSz, int ySz)
 {
@@ -102,6 +84,8 @@ public:
     virtual ~BSolver(){}
     virtual double* solve() = 0;
     virtual double exec_time() = 0;
+    virtual void addExtraIterations(int its) = 0;
+    virtual void setTimeStep(double dt) = 0;
 };
 
 void TDMA(const double* a, const double* b, const double* c,

@@ -27,8 +27,15 @@ BArea::BArea(std::string file)
         exit(1);
     }
 
-    std::ofstream test;
-    test.open("olol.txt", std::ios::out);
+//    std::ofstream test;
+//    test.open("olol.txt", std::ios::out);
+
+    area >> zc;
+    area >> zf;
+    area >> mu1;
+    area >> mu2;
+    area >> kx;
+    area >> ky;
 
     area >> I;
     area >> J;
@@ -67,16 +74,23 @@ BArea::BArea(std::string file)
 //        test << std::endl;
 //    }
 //    test.close();
-    for (int j = 0; j<J-1; j++){
-            for (int i = 0; i<I-1; i++)
-               test <<  H[i+I*j] << "\t";
-            test << std::endl;
-        }
-        test.close();
+//    for (int j = 0; j<J-1; j++){
+//            for (int i = 0; i<I-1; i++)
+//               test <<  H[i+I*j] << "\t";
+//            test << std::endl;
+//        }
+//        test.close();
 }
 
 BArea::BArea(const BArea &area)
 {
+    this->zc = area.zc;
+    this->zf = area.zf;
+    this->mu1 = area.mu1;
+    this->mu2 = area.mu2;
+    this->kx = area.kx;
+    this->ky = area.ky;
+
     this->I = area.I;
     this->J = area.J;
     this->T = area.T;

@@ -106,8 +106,6 @@ schedule(static) collapse(2)
     for (j = 2; j<J-2; j++) {
         for (i = 2; i<I-2; i++){
             k = j*I+i;
-//        for (k = j*I+2; k<j*I+I-2; k++) {
-//            i = k-j*I;
             dx_l[k] = Tx((H[k-1] + H[k])/2) /
                     ((x[i] - x[i-1])
                     * ((x[i] + x[i+1])/2 - (x[i] + x[i-1])/2)
@@ -177,7 +175,7 @@ double* BSolverOmp::solve()
 
     time = omp_get_wtime();
 
-    while (t<(area.dt*(area.T-1))){
+    while (iterations < area.T){
 
         prepareIteration();
 
@@ -267,9 +265,9 @@ schedule(static)
             std::cout << iterations << std::endl;
     }
 
-//    log_matrix("H", Ha, I, J);
-//    std::cout << std::endl << std::endl;
-//    log_matrix("H", H, I, J);
+    log_matrix("H", Ha, I, J);
+    std::cout << std::endl << std::endl;
+    log_matrix("H", H, I, J);
 
     time = omp_get_wtime() - time;
 
@@ -279,6 +277,16 @@ schedule(static)
 double BSolverOmp::exec_time()
 {
     return time;
+}
+
+void BSolverOmp::addExtraIterations(int its)
+{
+    area.T += its;
+}
+
+void BSolverOmp::setTimeStep(double dt)
+{
+    __bpde_omp::dt = dt;
 }
 
 } // namespace Bpde
