@@ -43,6 +43,8 @@ endif()
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/examples)
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/gui)
+
 if(ENABLE_QUALITY_TESTING)
     message("Enabling tests")
 
