@@ -1,7 +1,6 @@
 #ifndef BSOLVER_OMP_H
 #define BSOLVER_OMP_H
 
-#include "BArea.h"
 #include "BSolver.h"
 #include "omp.h"
 

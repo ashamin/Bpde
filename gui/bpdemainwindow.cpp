@@ -1,34 +1,236 @@
 #include "bpdemainwindow.h"
 
 #include <iostream>
+#include <QDebug>
 
-BpdeMainWindow::BpdeMainWindow(RInside& R, QString sourceFile)
+BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *parent)
     : R(R),
-    sourceFile(sourceFile)
+    sourceFile(sourceFile), x(), y(), H(), solver(NULL)
 {
     tempfile = QString::fromStdString(Rcpp::as<std::string>(R.parseEval("tfile <- tempfile()")));
     svgfile = QString::fromStdString(Rcpp::as<std::string>(R.parseEval("sfile <- tempfile()")));
 
+
+//    R.parseEval("library(\"MASS\");"
+//                "library(\"lattice\");"
+//                "library(\"plyr\");"
+//                "library(\"emdbook\");"
+//                "library(\"rgl\");"
+//                "library(\"fields\");"
+//                "open3d();"
+//                "bg3d(\"white\");"
+//                "material3d(col=\"black\");"
+//                "persp3d(x, y, H, aspect=c(1, 1, 0.5), col = \"lightblue\","
+//                        "xlab = \"X\", ylab = \"Y\", zlab = \"Sinc( r )\");"
+//                );
+
     QWidget *window = new QWidget;
-    window->setWindowTitle("Bpde GUI");
+    window->setWindowTitle("BpdeGUI");
+    setCentralWidget(window);
 
-    svg = new QSvgWidget;
+    QGroupBox *runParameters = new QGroupBox("Run parameters");
+    openMPEnabled = new QRadioButton("&OpenMP");
+    openClEnabled = new QRadioButton("&OpenCL");
+
+    openMPEnabled->setChecked(true);
+
+    connect(openMPEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
+    connect(openClEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
+
+    QVBoxLayout *vbox = new QVBoxLayout;
+    vbox->addWidget(openMPEnabled);
+    vbox->addWidget(openClEnabled);
+//    runParameters->setMinimumSize(260,140);
+//    runParameters->setMaximumSize(260,140);
+
+
+
+
+    QLabel *threadsLabel = new QLabel("Threads");
+    threadsLineEdit = new QLineEdit("4");
+    QHBoxLayout *threadNumber = new QHBoxLayout;
+    threadNumber->addWidget(threadsLabel);
+    threadNumber->addWidget(threadsLineEdit);
+
+    QHBoxLayout *deviceLayout = new QHBoxLayout;
+    QLabel *deviceLabel = new QLabel("Device");
+    deviceComboBox = new QComboBox();
+    deviceComboBox->addItem("CPU Intel Core i5 1.7 Mhz");
+    deviceLayout->addWidget(deviceLabel);
+    deviceLayout->addWidget(deviceComboBox);
+
+    QHBoxLayout* runLayout = new QHBoxLayout;
+    runButton = new QPushButton("Run computations", this);
+    qDebug() << "Connect : " <<
+    connect(runButton, SIGNAL(clicked()), this, SLOT(solve()));
+    runLayout->addWidget(runButton);
+
+    QVBoxLayout* ulLayout = new QVBoxLayout;
+    ulLayout->addLayout(vbox);
+    ulLayout->addLayout(threadNumber);
+    ulLayout->addLayout(deviceLayout);
+    ulLayout->addLayout(runLayout);
+
+
+    runParameters->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    runParameters->setLayout(ulLayout);
+
+
+
+
+    QButtonGroup *kernelGroup = new QButtonGroup;
+    kernelGroup->addButton(openMPEnabled, 0);
+    kernelGroup->addButton(openClEnabled, 1);
+
+    QGroupBox *solveParamBox = new QGroupBox("Density estimation bandwidth (scaled by 100)");
+
+    QHBoxLayout *iterationsLayout = new QHBoxLayout;
+    QHBoxLayout *stepLayout = new QHBoxLayout;
+    QLabel *sourceFileLabel = new QLabel("SourceFile");
+    sourceFileEdit = new QLineEdit(sourceFile);
+//    connect(sourceFileEdit, SIGNAL(clicked()), this, SLOT(selectSourceFile()));
+    iterationsEdit = new QLineEdit("10000");
+    stepEdit = new QLineEdit("3600");
+    QLabel *iterationsLabel = new QLabel("Iterations");
+    QLabel *stepLabel = new QLabel("Step");
+    QHBoxLayout *exportLayout = new QHBoxLayout;
+    exportImage = new QPushButton("Export Isoterms");
+    export3D = new QPushButton("Export 3D model");
+
+    iterationsLayout->addWidget(iterationsLabel);
+    iterationsLayout->addWidget(iterationsEdit);
+    stepLayout->addWidget(stepLabel);
+    stepLayout->addWidget(stepEdit);
+
+
+    exportLayout->addWidget(exportImage);
+    exportLayout->addWidget(export3D);
+
+    svg = new QSvgWidget();
+    loadSource();
+
+    QVBoxLayout *solveParamLayout = new QVBoxLayout;
+    solveParamLayout->addWidget(sourceFileLabel);
+    solveParamLayout->addWidget(sourceFileEdit);
+    solveParamLayout->addLayout(iterationsLayout);
+    solveParamLayout->addLayout(stepLayout);
+    solveParamLayout->addLayout(exportLayout);
+
+    solveParamBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    solveParamBox->setLayout(solveParamLayout);
+
+
+    QHBoxLayout *upperlayout = new QHBoxLayout;
+    upperlayout->addWidget(runParameters);
+    upperlayout->addWidget(solveParamBox);
+
+    QHBoxLayout *lowerlayout = new QHBoxLayout;
+    lowerlayout->addWidget(svg);
+
+    QVBoxLayout *outer = new QVBoxLayout;
+    outer->addLayout(upperlayout);
+    outer->addLayout(lowerlayout);
+    window->setLayout(outer);
+//    window->show();
+}
+
+void BpdeMainWindow::assignAreaToR(const Bpde::BArea &area)
+{
+    x.clear();
+    y.clear();
+    for (int i = 0; i<area.I; i++)
+        x.push_back(area.x[i]);
+    for (int j = 0; j<area.J; j++)
+        y.push_back(area.y[j]);
+
+    R.assign(area.I, "I");
+    R.assign(area.J, "J");
+    R.assign(x, "x");
+    R.assign(y, "y");
+
+
+    // wtf with Y??????
+    R.parseEval("x = x[2:(length(x)-1)]");
+    R.parseEval("y = y[2:(length(y)-2)]");
+
+    reAssignH(area.H);
+
+//        for (int i = 0; i<area.I * area.J; i++)
+//            H.push_back(area.H[i]);
+//        R.assign(H, "Htmp");
+//        R.parseEval("H = matrix(0, I-2, J-3)");
+//        R.parseEval("for (j in 2:(J-2)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[j*I+i]} }");
+}
+
+void BpdeMainWindow::reAssignH(double *Hfunc)
+{
+    H.clear();
+    Bpde::BArea area(sourceFileEdit->text().toStdString());
+
+    for (int i = 0; i<area.I * area.J; i++)
+        H.push_back(Hfunc[i]);
+    R.assign(H, "Htmp");
+    R.parseEval("H = matrix(0, I-2, J-3)");
+    R.parseEval("for (j in 2:(J-2)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[j*I+i]} }");
+}
+
+void BpdeMainWindow::loadSource()
+{
+    Bpde::BArea area(sourceFileEdit->text().toStdString());
+    if (solver != NULL)
+        delete solver;
+    if (openMPEnabled->isChecked()){
+        solver = Bpde::BSolverBuilder::getInstance()->getSolver(
+                sourceFileEdit->text().toStdString(), Bpde::ParallelizationMethod::OPENMP,
+                threadsLineEdit->text().toInt());
+    }
+    else {
+        solver = Bpde::BSolverBuilder::getInstance()->getSolver(
+                sourceFileEdit->text().toStdString(), Bpde::ParallelizationMethod::OPENCL);
+    }
+    solver->setTimeStep(0);
+    solver->addExtraIterations(-area.T);
+
+    assignAreaToR(area);
     plot();
+}
 
-    QHBoxLayout *layout = new QHBoxLayout;
-    layout->addWidget(svg);
-    window->setLayout(layout);
-    window->show();
+void BpdeMainWindow::selectSourceFile()
+{
+    QString file = "";
+    file = QFileDialog::getOpenFileName(
+                            NULL,
+                            "Select file",
+                            "/home",
+                            "Bpde files (*.bde)");
+    if (file != "") {
+        sourceFileEdit->setText(file);
+        loadSource();
+    }
+    else QMessageBox::information(NULL, "Error", "Maybe u have wrong file format");
+
 }
 
 void BpdeMainWindow::plot()
 {
-    //x <- seq(-10, 10, length= 30);y <- x;f <- function(x,y) { r <- sqrt(x^2+y^2); 10 * sin(r)/r };z <- outer(x, y, f);z[is.na(z)] <- 1;
     std::string cmd0 = "svg(width=6,height=6,pointsize=10,filename=tfile); ";
-    std::string cmd = cmd0 + "library(\"fields\");image.plot(volcano);contour(volcano, add = TRUE);dev.off()";
+    std::string cmd = cmd0 + "library(\"fields\");image.plot(x, y, H);contour(x, y, H, add = TRUE);dev.off()";
     R.parseEvalQ(cmd);
-    filterFile();           	// we need to simplify the svg file for display by Qt
+    filterFile();
     svg->load(svgfile);
+}
+
+void BpdeMainWindow::solve()
+{
+    qDebug() << "start solve";
+    setWindowTitle("Equation solving. Please wait ...");
+    solver->addExtraIterations(iterationsEdit->text().toInt());
+    solver->setTimeStep(stepEdit->text().toInt());
+    reAssignH(solver->solve());
+    plot();
+    QMessageBox::information(this, "Comp ended", QString("Comp time %1").
+                             arg(solver->exec_time()));
+    setWindowTitle("BpdeGUI");
 }
 
 void BpdeMainWindow::filterFile() {

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cmath>
 
+#include "BArea.h"
+
 namespace Bpde {
 
 namespace ParallelizationMethod

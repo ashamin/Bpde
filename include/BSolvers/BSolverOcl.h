@@ -1,7 +1,6 @@
 #ifndef BSOLVER_OCL_H
 #define BSOLVER_OCL_H
 
-#include "BArea.h"
 #include "BSolver.h"
 
 #include "CL/cl.hpp"

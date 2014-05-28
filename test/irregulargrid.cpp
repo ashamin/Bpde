@@ -5,6 +5,7 @@
 TEST (QualityTests, test1)
 {
     SCOPED_TRACE("test1");
+    double zf = 90, zc =160;
     using namespace Bpde;
     BSolver* solver = BSolverBuilder::getInstance()->
             getSolver("xyz0.txt", ParallelizationMethod::OPENMP);
