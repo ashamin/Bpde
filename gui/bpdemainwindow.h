@@ -59,6 +59,7 @@ public slots:
     void solve();
     void loadSource();
     void selectSourceFile();
+    void export3DModel();
 
 };
 

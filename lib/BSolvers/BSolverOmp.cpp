@@ -265,9 +265,9 @@ schedule(static)
             std::cout << iterations << std::endl;
     }
 
-    log_matrix("H", Ha, I, J);
-    std::cout << std::endl << std::endl;
-    log_matrix("H", H, I, J);
+//    log_matrix("H", Ha, I, J);
+//    std::cout << std::endl << std::endl;
+//    log_matrix("H", H, I, J);
 
     time = omp_get_wtime() - time;
 

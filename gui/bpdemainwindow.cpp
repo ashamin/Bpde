@@ -96,6 +96,7 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     QHBoxLayout *exportLayout = new QHBoxLayout;
     exportImage = new QPushButton("Export Isoterms");
     export3D = new QPushButton("Export 3D model");
+    connect(export3D, SIGNAL(clicked()), this, SLOT(export3DModel()));
 
     iterationsLayout->addWidget(iterationsLabel);
     iterationsLayout->addWidget(iterationsEdit);
@@ -151,15 +152,9 @@ void BpdeMainWindow::assignAreaToR(const Bpde::BArea &area)
 
     // wtf with Y??????
     R.parseEval("x = x[2:(length(x)-1)]");
-    R.parseEval("y = y[2:(length(y)-2)]");
+    R.parseEval("y = y[2:(length(y)-1)]");
 
     reAssignH(area.H);
-
-//        for (int i = 0; i<area.I * area.J; i++)
-//            H.push_back(area.H[i]);
-//        R.assign(H, "Htmp");
-//        R.parseEval("H = matrix(0, I-2, J-3)");
-//        R.parseEval("for (j in 2:(J-2)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[j*I+i]} }");
 }
 
 void BpdeMainWindow::reAssignH(double *Hfunc)
@@ -170,15 +165,16 @@ void BpdeMainWindow::reAssignH(double *Hfunc)
     for (int i = 0; i<area.I * area.J; i++)
         H.push_back(Hfunc[i]);
     R.assign(H, "Htmp");
-    R.parseEval("H = matrix(0, I-2, J-3)");
-    R.parseEval("for (j in 2:(J-2)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[j*I+i]} }");
+    R.parseEval("H = matrix(0, I-2, J-2)");
+    R.parseEval("for (j in 2:(J-1)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[(j-1)*I+(i-1) + 1]} }");
+
+//    R.parseEval("print(H)");
 }
 
 void BpdeMainWindow::loadSource()
 {
     Bpde::BArea area(sourceFileEdit->text().toStdString());
-    if (solver != NULL)
-        delete solver;
+    delete solver;
     if (openMPEnabled->isChecked()){
         solver = Bpde::BSolverBuilder::getInstance()->getSolver(
                 sourceFileEdit->text().toStdString(), Bpde::ParallelizationMethod::OPENMP,
@@ -211,10 +207,37 @@ void BpdeMainWindow::selectSourceFile()
 
 }
 
+void BpdeMainWindow::export3DModel()
+{
+    QString file = "";
+    try {
+        file = QFileDialog::getSaveFileName(
+                NULL,
+                "Export of 3D model",
+                "/home",
+                "Csvfiles (*.csv)");
+    }catch(...)
+    {
+    }
+    if (file != "") {
+        R.assign(file.toStdString(), "csvFilePath");
+        R.parseEval("fx = c(x, rep(-1, length(H)-length(x)));"
+            "fy = c(y, rep(-1, length(H)-length(y)));"
+            "fH = c(H);"
+            "csv = data.frame(fx, fy, fH);"
+            "write.csv2(csv, file=csvFilePath);"
+        );
+    }
+    else {
+        QMessageBox::information(this, "Error", "Cannot save 3D model");
+    }
+}
+
 void BpdeMainWindow::plot()
 {
     std::string cmd0 = "svg(width=6,height=6,pointsize=10,filename=tfile); ";
-    std::string cmd = cmd0 + "library(\"fields\");image.plot(x, y, H);contour(x, y, H, add = TRUE);dev.off()";
+    std::string cmd = cmd0 + "library(\"fields\");image.plot(x, y, H);"
+            "contour(x, y, H, add = TRUE);dev.off()";
     R.parseEvalQ(cmd);
     filterFile();
     svg->load(svgfile);
@@ -228,14 +251,12 @@ void BpdeMainWindow::solve()
     solver->setTimeStep(stepEdit->text().toInt());
     reAssignH(solver->solve());
     plot();
-    QMessageBox::information(this, "Comp ended", QString("Comp time %1").
-                             arg(solver->exec_time()));
+//    QMessageBox::information(this, "Comp ended", QString("Comp time %1").
+//                             arg(solver->exec_time()));
     setWindowTitle("BpdeGUI");
 }
 
 void BpdeMainWindow::filterFile() {
-    // cairoDevice creates richer SVG than Qt can display
-    // but per Michaele Lawrence, a simple trick is to s/symbol/g/ which we do here
     QFile infile(tempfile);
     infile.open(QFile::ReadOnly);
     QFile outfile(svgfile);
