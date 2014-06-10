@@ -55,8 +55,6 @@ private:
     int threadsNum;
 
     BArea area;
-
-
 };
 
 }

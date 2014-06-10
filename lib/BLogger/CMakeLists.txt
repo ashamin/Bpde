@@ -1,0 +1,7 @@
+set(BLOGGER_SRC
+    ${BLOGGER_SRC}
+    ${CMAKE_CURRENT_SOURCE_DIR}/BLogger.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/BLoggerState.cpp
+PARENT_SCOPE
+)
+

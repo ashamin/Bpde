@@ -10,25 +10,11 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     tempfile = QString::fromStdString(Rcpp::as<std::string>(R.parseEval("tfile <- tempfile()")));
     svgfile = QString::fromStdString(Rcpp::as<std::string>(R.parseEval("sfile <- tempfile()")));
 
-
-//    R.parseEval("library(\"MASS\");"
-//                "library(\"lattice\");"
-//                "library(\"plyr\");"
-//                "library(\"emdbook\");"
-//                "library(\"rgl\");"
-//                "library(\"fields\");"
-//                "open3d();"
-//                "bg3d(\"white\");"
-//                "material3d(col=\"black\");"
-//                "persp3d(x, y, H, aspect=c(1, 1, 0.5), col = \"lightblue\","
-//                        "xlab = \"X\", ylab = \"Y\", zlab = \"Sinc( r )\");"
-//                );
-
     QWidget *window = new QWidget;
     window->setWindowTitle("BpdeGUI");
     setCentralWidget(window);
 
-    QGroupBox *runParameters = new QGroupBox("Run parameters");
+    QGroupBox *runParameters = new QGroupBox("Параметры запуска");
     openMPEnabled = new QRadioButton("&OpenMP");
     openClEnabled = new QRadioButton("&OpenCL");
 
@@ -46,21 +32,21 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
 
 
 
-    QLabel *threadsLabel = new QLabel("Threads");
+    QLabel *threadsLabel = new QLabel("Количество потоков");
     threadsLineEdit = new QLineEdit("4");
     QHBoxLayout *threadNumber = new QHBoxLayout;
     threadNumber->addWidget(threadsLabel);
     threadNumber->addWidget(threadsLineEdit);
 
     QHBoxLayout *deviceLayout = new QHBoxLayout;
-    QLabel *deviceLabel = new QLabel("Device");
+    QLabel *deviceLabel = new QLabel("Устройство");
     deviceComboBox = new QComboBox();
-    deviceComboBox->addItem("CPU Intel Core i5 1.7 Mhz");
+    deviceComboBox->addItem("CPU Intel Core i5 4 cores");
     deviceLayout->addWidget(deviceLabel);
     deviceLayout->addWidget(deviceComboBox);
 
     QHBoxLayout* runLayout = new QHBoxLayout;
-    runButton = new QPushButton("Run computations", this);
+    runButton = new QPushButton("Начать вычисления", this);
     qDebug() << "Connect : " <<
     connect(runButton, SIGNAL(clicked()), this, SLOT(solve()));
     runLayout->addWidget(runButton);
@@ -82,7 +68,7 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     kernelGroup->addButton(openMPEnabled, 0);
     kernelGroup->addButton(openClEnabled, 1);
 
-    QGroupBox *solveParamBox = new QGroupBox("Density estimation bandwidth (scaled by 100)");
+    QGroupBox *solveParamBox = new QGroupBox("Настройки вычислительного метода");
 
     QHBoxLayout *iterationsLayout = new QHBoxLayout;
     QHBoxLayout *stepLayout = new QHBoxLayout;
@@ -91,11 +77,12 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
 //    connect(sourceFileEdit, SIGNAL(clicked()), this, SLOT(selectSourceFile()));
     iterationsEdit = new QLineEdit("10000");
     stepEdit = new QLineEdit("3600");
-    QLabel *iterationsLabel = new QLabel("Iterations");
-    QLabel *stepLabel = new QLabel("Step");
+    QLabel *iterationsLabel = new QLabel("Итерации");
+    QLabel *stepLabel = new QLabel("Шаг            ");
     QHBoxLayout *exportLayout = new QHBoxLayout;
-    exportImage = new QPushButton("Export Isoterms");
-    export3D = new QPushButton("Export 3D model");
+    exportImage = new QPushButton("Экспорт изотерм");
+    export3D = new QPushButton("Экспорт 3D модели");
+    connect(exportImage, SIGNAL(clicked()), this, SLOT(exportIsoterms()));
     connect(export3D, SIGNAL(clicked()), this, SLOT(export3DModel()));
 
     iterationsLayout->addWidget(iterationsLabel);
@@ -149,8 +136,6 @@ void BpdeMainWindow::assignAreaToR(const Bpde::BArea &area)
     R.assign(x, "x");
     R.assign(y, "y");
 
-
-    // wtf with Y??????
     R.parseEval("x = x[2:(length(x)-1)]");
     R.parseEval("y = y[2:(length(y)-1)]");
 
@@ -167,8 +152,6 @@ void BpdeMainWindow::reAssignH(double *Hfunc)
     R.assign(H, "Htmp");
     R.parseEval("H = matrix(0, I-2, J-2)");
     R.parseEval("for (j in 2:(J-1)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[(j-1)*I+(i-1) + 1]} }");
-
-//    R.parseEval("print(H)");
 }
 
 void BpdeMainWindow::loadSource()
@@ -196,15 +179,14 @@ void BpdeMainWindow::selectSourceFile()
     QString file = "";
     file = QFileDialog::getOpenFileName(
                             NULL,
-                            "Select file",
+                            "Выберите файл",
                             "/home",
                             "Bpde files (*.bde)");
     if (file != "") {
         sourceFileEdit->setText(file);
         loadSource();
     }
-    else QMessageBox::information(NULL, "Error", "Maybe u have wrong file format");
-
+    else QMessageBox::information(NULL, "Ошибка", "Файл поврежден или имеет неверный формат");
 }
 
 void BpdeMainWindow::export3DModel()
@@ -213,7 +195,7 @@ void BpdeMainWindow::export3DModel()
     try {
         file = QFileDialog::getSaveFileName(
                 NULL,
-                "Export of 3D model",
+                "Экспорт 3D модели (csv формат)",
                 "/home",
                 "Csvfiles (*.csv)");
     }catch(...)
@@ -228,8 +210,29 @@ void BpdeMainWindow::export3DModel()
             "write.csv2(csv, file=csvFilePath);"
         );
     }
-    else {
-        QMessageBox::information(this, "Error", "Cannot save 3D model");
+}
+
+void BpdeMainWindow::exportIsoterms()
+{
+    QString file = "";
+    try {
+        file = QFileDialog::getSaveFileName(
+                NULL,
+                "Экпорт изотерм (формат jpg)",
+                "/home",
+                "Images (*.jpg)");
+    }catch(...)
+    {
+    }
+    if (file != "") {
+        QSvgRenderer renderer(svgfile);
+        QImage image(x.size()*40+(int)(x.size()*4), y.size()*40, QImage::Format_ARGB32);
+        image.fill(0xaaA08080);
+
+        QPainter painter(&image);
+        renderer.render(&painter);
+
+        image.save(file);
     }
 }
 
@@ -268,8 +271,8 @@ void BpdeMainWindow::filterFile() {
     QRegExp rx2("</symbol");
     while (!in.atEnd()) {
         QString line = in.readLine();
-        line.replace(rx1, "<g"); // so '<symbol' becomes '<g ...'
-        line.replace(rx2, "</g");// and '</symbol becomes '</g'
+        line.replace(rx1, "<g");
+        line.replace(rx2, "</g");
         out << line << "\n";
     }
     infile.close();

@@ -26,7 +26,6 @@ public:
     virtual void setTimeStep(double dt);
 private:
     inline cl_int initOpenCL();
-    inline cl_int initConstantBuffs();
     inline void prepareIteration();
     inline cl_int setArgsToExplicitDerivativeKernel();
     inline cl_int setArgsToHydraulicConductivityKernel();
@@ -58,15 +57,12 @@ private:
     cl::Program program;
     cl::Kernel explicitDerivativeKernel;
     cl::Kernel hydraulicConductivityKernel;
-    cl::Kernel implicitTDMAKernelbyX;
-    cl::Kernel implicitTDMAKernelbyY;
 
     cl::Buffer HBuff, HaBuff;
     cl::Buffer xBuff, yBuff;
     cl::Buffer VBuff, muBuff;
     cl::Buffer dx_lBuff, dx_dBuff, dx_uBuff;
     cl::Buffer dy_lBuff, dy_dBuff, dy_uBuff;
-    cl::Buffer loc_cBuff, loc_dBuff, bBuff, tmp_vBuff;
     cl::Buffer IBuff, JBuff, TBuff;
     cl::Buffer dtBuff, nBuff, tBuff;
     cl::Buffer zcBuff, zfBuff, kxBuff, kyBuff;

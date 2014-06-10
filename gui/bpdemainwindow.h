@@ -20,6 +20,9 @@
 #include <QPushButton>
 #include <QTextStream>
 #include <QFileDialog>
+#include <QSvgRenderer>
+#include <QPainter>
+#include <QImage>
 #include <QMessageBox>
 
 #include <RInside.h>
@@ -60,6 +63,7 @@ public slots:
     void loadSource();
     void selectSourceFile();
     void export3DModel();
+    void exportIsoterms();
 
 };
 

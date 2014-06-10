@@ -23,16 +23,15 @@ int main(int argc, char *argv[])
     try {
         file = QFileDialog::getOpenFileName(
                                 NULL,
-                                "Select file",
+                                "Выберите файл",
                                 "/home",
                                 "Bpde files (*.bde)");
         if (file != "")
             window = new BpdeMainWindow(R, file);
-//            BpdeMainWindow window(R, file);
         else
-            QMessageBox::information(NULL, "Hello World!", "Hi!");
+            QMessageBox::information(NULL, "Ошибка!", "Во время работы произошел сбой.");
     }catch(...) {
-        QMessageBox::information(NULL, "Error", "Maybe u have wrong file format");
+        QMessageBox::information(NULL, "Ошибка", "Файл поврежден или имеет неверный формат");
     }
     if (window)
         window->show();

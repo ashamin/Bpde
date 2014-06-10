@@ -20,8 +20,7 @@ BSolverBuilder* BSolverBuilder::getInstance()
 BSolver* BSolverBuilder::getSolver(std::string file,
         ParallelizationMethod::ParallelizationMethod pMethod, int threadsNum)
 {
-    if (area != NULL)
-        delete area;
+    delete area;
     area = new BArea(file);
     if (pMethod == ParallelizationMethod::OPENMP)
         return new BSolverOmp(*area, threadsNum);
@@ -51,8 +50,7 @@ BSolver* BSolverBuilder::getSolver(std::string file,
         ParallelizationMethod::ParallelizationMethod pMethod, std::vector<cl::Device>& devices)
 {
     // only if opencl
-    if (area != NULL)
-        delete area;
+    delete area;
     area = new BArea(file);
     if (pMethod == ParallelizationMethod::OPENCL)
         return new BSolverOcl(*area, devices);

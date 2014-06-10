@@ -1,0 +1,8 @@
+set(BLOGGER_H
+    ${BLOGGER_H}
+    ${CMAKE_CURRENT_SOURCE_DIR}/BLogger.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/BLoggerState.h
+PARENT_SCOPE
+)
+
+
