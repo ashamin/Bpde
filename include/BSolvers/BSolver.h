@@ -26,10 +26,23 @@ class BSolver
 public:
     BSolver(){}
     virtual ~BSolver(){}
-    virtual double* solve() = 0;
-    virtual double exec_time() = 0;
-    virtual void addExtraIterations(int its) = 0;
-    virtual void setTimeStep(double dt) = 0;
+    virtual double* solve(){}
+    inline virtual void iterate() {
+        cHydraulicConductivity();
+        cSupporting();
+        cExplicitDerivative();
+        cImplicitTDMAs();
+        cNextLayer();
+    }
+    virtual double exec_time(){}
+    virtual void addExtraIterations(int its){}
+    virtual void setTimeStep(double dt){}
+protected:
+    inline virtual void cHydraulicConductivity() {}
+    inline virtual void cSupporting() {}
+    inline virtual void cExplicitDerivative() {}
+    inline virtual void cImplicitTDMAs() {}
+    inline virtual void cNextLayer() {}
 };
 
 void TDMA(const double* a, const double* b, const double* c,
