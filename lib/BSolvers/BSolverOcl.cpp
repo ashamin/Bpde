@@ -14,7 +14,7 @@ namespace Bpde
 {
 
 BSolverOcl::BSolverOcl(const BArea& area, std::vector<cl::Device>& devices)
-    :area(area), iterations(0), time(0),
+    :area(area),
      devices(devices), context(), commandQueue(), program(),
      explicitDerivativeKernel(), hydraulicConductivityKernel(),
      t(0), dt(area.dt), I(area.I), J(area.J), n(area.I * area.J),
@@ -42,6 +42,7 @@ BSolverOcl::BSolverOcl(const BArea& area, std::vector<cl::Device>& devices)
     for (int i =0; i<n; i++)
         Ha[i] = b[i] = V[i] = dx_d[i] = dx_l[i] = dx_u[i] = dy_d[i] = dy_l[i] = dy_u[i] =
                 mu[i] = loc_c[i] = loc_d[i] = 0;
+    tmp_v = new double[n];
 }
 
 BSolverOcl::~BSolverOcl()
@@ -58,67 +59,6 @@ BSolverOcl::~BSolverOcl()
     delete[] mu;
     delete[] loc_c;
     delete[] loc_d;
-}
-
-void BSolverOcl::prepareIteration()
-{
-    int i, j, k, kT, kH;
-    cl_int err = 0;
-
-    // пересчитываем функцию V а каждом шаге
-    for (j = 1; j<J-1; j++)
-        for (i = 1; i<I-1; i++)
-            V[i + I*j] = area.V(area.x[i], area.y[j], t);
-
-    // формируем Tx и Ty на каждом шаге
-    setArgsToHydraulicConductivityKernel();
-
-    err = commandQueue.enqueueNDRangeKernel(hydraulicConductivityKernel,
-                cl::NDRange(2, 2), cl::NDRange(J-4, I-4));
-
-    err = commandQueue.enqueueReadBuffer(dx_lBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dx_l));
-    err = commandQueue.enqueueReadBuffer(dx_dBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dx_d));
-    err = commandQueue.enqueueReadBuffer(dx_uBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dx_u));
-
-    err = commandQueue.enqueueReadBuffer(dy_lBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dy_l));
-    err = commandQueue.enqueueReadBuffer(dy_dBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dy_d));
-    err = commandQueue.enqueueReadBuffer(dy_uBuff, CL_TRUE, 0,
-                sizeof(double)*n, static_cast<void*>(dy_u));
-
-    for (j = 2; j<J-2; j++) {
-        k = j*I + 1;
-        dx_l[k] = 0;
-        dx_d[k] = 1;
-        dx_u[k] = -1;
-
-        k = j * I + I - 2;
-        dx_l[k] = -1;
-        dx_d[k] = 1;
-        dx_u[k] = 0;
-    }
-
-    // формируем Ty на каждом шаге
-
-    for (i = 2; i < I - 2; i++) {
-        int kT = i*J + 1;
-        dy_l[kT] = 0;
-        dy_d[kT] = 1;
-        dy_u[kT] = -1;
-
-        kT = i*J + (J-2);
-        dy_l[kT] = -1;
-        dy_d[kT] = 1;
-        dy_u[kT] = 0;
-    }
-
-    // вычисляем зачения mu на всей области (с буфером)
-    for (i = I; i<n-I; i++)
-        getMu(&mu[i], H[i]);
 }
 
 cl_int BSolverOcl::initOpenCL()
@@ -146,7 +86,7 @@ cl_int BSolverOcl::initOpenCL()
         err |= ret;
     } catch(...)
     {
-        std::cout << "fuck you!" << std::endl;
+        std::cout << "exception were threwed" << std::endl;
         return -1;
     }
 
@@ -168,88 +108,12 @@ double* BSolverOcl::solve()
     time = omp_get_wtime();
 
     while (iterations < area.T){
-
-        prepareIteration();
-
-        int k = 0;
-        int i, j, kT, kH;
-        double tmp;
-
-//        setArgsToExplicitDerivativeKernel();
-
-//        err = commandQueue.enqueueNDRangeKernel(explicitDerivativeKernel,
-//                    cl::NDRange(1, 1), cl::NDRange(I-2, J-2));
-
-//        err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
-//                    sizeof(double)*n, static_cast<void*>(Ha));
-
-        for (i = 1; i < I - 1; i++)
-            for (j = 1; j < J - 1; j++) {
-                kT = i*J + j;
-                kH = j*I + i;
-                Ha[kH] =(
-                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
-                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
-                         V[kH]
-                        )
-                        / mu[kH];
-            }
-
-
-        // неявная прогонка по X
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++) {
-                k = j*I + i;
-                tmp = mu[k] / dt;
-                dx_d[k] -= tmp;
-                b[k] = - Ha[k] * tmp;
-            }
-
-        for (j = 2; j<J-2; j++){
-            k = j*I+1;
-            TDMA(&dx_l[k], &dx_d[k], &dx_u[k], &tmp_v[k], &b[k], I-2, 1, &loc_c[k], &loc_d[k]);
-        }
-
-        // неявная прогонка по Y
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++) {
-                kT = i*J + j;
-                kH = j*I + i;
-                tmp = mu[kH] / dt;
-                dy_d[kT] -= tmp;
-                tmp_v[kH] = -tmp_v[kH] * tmp;
-        }
-
-        for (i = 2; i< I - 2; i++) {
-            int kH = I + i;
-            tmp_v[kH] = 0;
-            kH = (J-2)*I + i;
-            tmp_v[kH] =  0;
-        }
-
-        // исправить это!
-        for (i = 2; i < I - 2; i++) {
-            kH = I + i;
-            kT = i*J+1;
-            TDMA_t(&dy_l[kT], &dy_d[kT], &dy_u[kT], &Ha[kH], &tmp_v[kH], J-2, I, &loc_c[kT], &loc_d[kT]);
-        }
-
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++)
-            H[j*I + i] = H[j*I + i] + dt*Ha[j*I + i];
-
-
+        iterate();
         t += dt;
         iterations++;
         if (iterations % 10000 == 0)
             std::cout << iterations << std::endl;
-
-//        break;
     }
-
-//    log_matrix("H", Ha, I, J);
-//    std::cout << std::endl << std::endl;
-//    log_matrix("H", H, I, J);
 
     time = omp_get_wtime() - time;
 
@@ -416,6 +280,126 @@ void BSolverOcl::addExtraIterations(int its)
 void BSolverOcl::setTimeStep(double dt)
 {
     this->dt = dt;
+}
+
+void BSolverOcl::cHydraulicConductivity()
+{
+    cl_int err = 0;
+    int k = 0;
+    // формируем Tx и Ty на каждом шаге
+    setArgsToHydraulicConductivityKernel();
+
+    err = commandQueue.enqueueNDRangeKernel(hydraulicConductivityKernel,
+                cl::NDRange(2, 2), cl::NDRange(J-4, I-4));
+
+    err = commandQueue.enqueueReadBuffer(dx_lBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_l));
+    err = commandQueue.enqueueReadBuffer(dx_dBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_d));
+    err = commandQueue.enqueueReadBuffer(dx_uBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dx_u));
+
+    err = commandQueue.enqueueReadBuffer(dy_lBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_l));
+    err = commandQueue.enqueueReadBuffer(dy_dBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_d));
+    err = commandQueue.enqueueReadBuffer(dy_uBuff, CL_TRUE, 0,
+                sizeof(double)*n, static_cast<void*>(dy_u));
+
+    for (int j = 2; j<J-2; j++) {
+        k = j*I + 1;
+        dx_l[k] = 0;
+        dx_d[k] = 1;
+        dx_u[k] = -1;
+
+        k = j * I + I - 2;
+        dx_l[k] = -1;
+        dx_d[k] = 1;
+        dx_u[k] = 0;
+    }
+
+    for (int i = 2; i < I - 2; i++) {
+        int kT = i*J + 1;
+        dy_l[kT] = 0;
+        dy_d[kT] = 1;
+        dy_u[kT] = -1;
+
+        kT = i*J + (J-2);
+        dy_l[kT] = -1;
+        dy_d[kT] = 1;
+        dy_u[kT] = 0;
+    }
+}
+
+void BSolverOcl::cSupporting()
+{
+    // пересчитываем функцию V а каждом шаге
+    for (int j = 1; j<J-1; j++)
+        for (int i = 1; i<I-1; i++)
+            V[i + I*j] = area.V(x[i], y[j], t);
+
+    // вычисляем зачения mu на всей области (с буфером)
+    for (int i = I; i<n-I; i++)
+        getMu(&mu[i], H[i]);
+}
+
+void BSolverOcl::cExplicitDerivative()
+{
+    cl_int err = 0;
+    setArgsToExplicitDerivativeKernel();
+
+    err = commandQueue.enqueueNDRangeKernel(explicitDerivativeKernel,
+                cl::NDRange(1, 1), cl::NDRange(I-2, J-2));
+
+    err = commandQueue.enqueueReadBuffer(HaBuff, CL_TRUE, 0,
+                                         sizeof(double)*n, static_cast<void*>(Ha));
+}
+
+void BSolverOcl::cImplicitTDMAs()
+{
+    // неявная прогонка по X
+    for (int i = 2; i < I - 2; i++)
+        for (int j = 2; j < J - 2; j++) {
+            int k = j*I + i;
+            double tmp = mu[k] / dt;
+            dx_d[k] -= tmp;
+            b[k] = - Ha[k] * tmp;
+        }
+
+    for (int j = 2; j<J-2; j++){
+        int k = j*I+1;
+        TDMA(&dx_l[k], &dx_d[k], &dx_u[k], &tmp_v[k], &b[k], I-2, 1, &loc_c[k], &loc_d[k]);
+    }
+
+    // неявная прогонка по Y
+    for (int i = 2; i < I - 2; i++)
+        for (int j = 2; j < J - 2; j++) {
+            int kT = i*J + j;
+            int kH = j*I + i;
+            double tmp = mu[kH] / dt;
+            dy_d[kT] -= tmp;
+            tmp_v[kH] = -tmp_v[kH] * tmp;
+    }
+
+    for (int i = 2; i< I - 2; i++) {
+        int kH = I + i;
+        tmp_v[kH] = 0;
+        kH = (J-2)*I + i;
+        tmp_v[kH] =  0;
+    }
+
+    for (int i = 2; i < I - 2; i++) {
+        int kH = I + i;
+        int kT = i*J+1;
+        TDMA_t(&dy_l[kT], &dy_d[kT], &dy_u[kT], &Ha[kH], &tmp_v[kH], J-2, I, &loc_c[kT], &loc_d[kT]);
+    }
+}
+
+void BSolverOcl::cNextLayer()
+{
+    for (int i = 2; i < I - 2; i++)
+        for (int j = 2; j < J - 2; j++)
+            H[j*I + i] = H[j*I + i] + dt*Ha[j*I + i];
 }
 
 

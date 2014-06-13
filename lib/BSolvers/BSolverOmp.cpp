@@ -17,7 +17,7 @@ BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
      time(0),
      threadsNum(threadsNum)
 {
-    using namespace __bpde_omp;
+//    using namespace __bpde_omp;
 
     dt = area.dt;
 
@@ -54,7 +54,7 @@ BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
     
 BSolverOmp::~BSolverOmp()
 {
-    using namespace __bpde_omp;
+//    using namespace __bpde_omp;
     delete[] Ha;
     delete[] b;
     delete[] V;
@@ -71,9 +71,18 @@ BSolverOmp::~BSolverOmp()
 
 void BSolverOmp::prepareIteration()
 {
-    using namespace __bpde_omp;
+//    using namespace __bpde_omp;
 
     int i, j, k, kT, kH;
+    double *V = this->V, *x = this->x, *y = this->y;
+    double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
+    double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
+    double *H = this->H;
+
+    double *mu = this->mu;
+    int I = this->I, J = this->J, n = this->n;
+    double t = this->t;
+
 
     // пересчитываем функцию V а каждом шаге
 #pragma omp parallel for shared(V) \
@@ -81,7 +90,7 @@ firstprivate(I, J, t) private(i, j) \
 schedule(static) collapse(2)
     for (j = 1; j<J-1; j++)
         for (i = 1; i<I-1; i++)
-            V[i + I*j] = area.V(area.x[i], area.y[j], t);
+            V[i + I*j] = area.V(x[i], y[j], t);
 
 
 #pragma omp parallel for shared(dx_l, dx_d, dx_u) \
@@ -169,7 +178,18 @@ schedule(static)
 
 double* BSolverOmp::solve()
 {
-    using namespace __bpde_omp;
+//    using namespace __bpde_omp;
+
+    double *V = this->V, *x = this->x, *y = this->y;
+    double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
+    double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
+    double *H = this->H, *Ha = this->Ha;
+
+    double *mu = this->mu;
+    double *b = this->b, *loc_c = this->loc_c, *loc_d = this->loc_d;
+
+    int I = this->I, J = this->J, n = this->n;
+    double t = this->t, dt = this->dt;
 
     double* tmp_v = new double[n];
 
@@ -286,7 +306,7 @@ void BSolverOmp::addExtraIterations(int its)
 
 void BSolverOmp::setTimeStep(double dt)
 {
-    __bpde_omp::dt = dt;
+    this->dt = dt;
 }
 
 } // namespace Bpde

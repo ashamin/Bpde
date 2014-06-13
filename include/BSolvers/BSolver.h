@@ -24,7 +24,12 @@ enum ParallelizationMethod
 class BSolver
 {
 public:
-    BSolver(){}
+    BSolver()
+        :iterations(0), threadsNum(0), time(0), t(0), n(0), dt(0), I(0), J(0),
+          H(NULL), Ha(NULL), x(NULL), y(NULL), V(NULL), mu(NULL), b(NULL),
+          dx_d(NULL), dx_l(NULL), dx_u(NULL), dy_d(NULL), dy_l(NULL), dy_u(NULL),
+          loc_c(NULL), loc_d(NULL)
+    {}
     virtual ~BSolver(){}
     virtual double* solve(){}
     inline virtual void iterate() {
@@ -43,6 +48,21 @@ protected:
     inline virtual void cExplicitDerivative() {}
     inline virtual void cImplicitTDMAs() {}
     inline virtual void cNextLayer() {}
+
+    double *H, *Ha;
+    double *x, *y;
+    double *V;
+    double *mu;
+    double *dx_d, *dx_l, *dx_u, *dy_d, *dy_l, *dy_u;
+    double *loc_c, *loc_d, *b;
+    int I, J;
+    double dt;
+    int n;
+    double t;
+
+    int iterations;
+    double time;
+    int threadsNum;
 };
 
 void TDMA(const double* a, const double* b, const double* c,

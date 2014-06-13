@@ -24,9 +24,17 @@ public:
 
     virtual void addExtraIterations(int its);
     virtual void setTimeStep(double dt);
+
+
+protected:
+    inline virtual void cHydraulicConductivity();
+    inline virtual void cSupporting();
+    inline virtual void cExplicitDerivative();
+    inline virtual void cImplicitTDMAs();
+    inline virtual void cNextLayer();
+
 private:
     inline cl_int initOpenCL();
-    inline void prepareIteration();
     inline cl_int setArgsToExplicitDerivativeKernel();
     inline cl_int setArgsToHydraulicConductivityKernel();
 
@@ -34,9 +42,6 @@ private:
     {
         *mu = (H >= area.zc)?area.mu1:area.mu2;
     }
-
-    int iterations;
-    double time;
 
     BArea area;
 
