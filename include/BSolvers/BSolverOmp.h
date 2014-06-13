@@ -33,8 +33,14 @@ public:
     virtual void addExtraIterations(int its);
     virtual void setTimeStep(double dt);
 
+protected:
+    inline virtual void cHydraulicConductivity();
+    inline virtual void cSupporting();
+    inline virtual void cExplicitDerivative();
+    inline virtual void cImplicitTDMAs();
+    inline virtual void cNextLayer();
+
 private:    
-    inline void prepareIteration();
     inline double Tx(double H)
     {
         return (H >= area.zc)?area.kx*(area.zc - area.zf):((H < area.zf)?0:area.kx*(H - area.zf));
@@ -53,6 +59,8 @@ private:
     int iterations;
     double time;
     int threadsNum;
+
+    double *tmp_v;
 
     BArea area;
 };

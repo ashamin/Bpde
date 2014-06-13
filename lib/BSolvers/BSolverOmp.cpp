@@ -50,6 +50,8 @@ BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
     for (int i =0; i<n; i++)
         Ha[i] = b[i] = V[i] = dx_d[i] = dx_l[i] = dx_u[i] = dy_d[i] = dy_l[i] = dy_u[i] =
                 mu[i] = loc_c[i] = loc_d[i] = 0;
+
+    tmp_v = new double[n];
 }
     
 BSolverOmp::~BSolverOmp()
@@ -69,29 +71,62 @@ BSolverOmp::~BSolverOmp()
     delete[] loc_d;
 }
 
-void BSolverOmp::prepareIteration()
+double* BSolverOmp::solve()
 {
 //    using namespace __bpde_omp;
 
-    int i, j, k, kT, kH;
     double *V = this->V, *x = this->x, *y = this->y;
     double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
     double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
-    double *H = this->H;
+    double *H = this->H, *Ha = this->Ha;
 
     double *mu = this->mu;
+    double *b = this->b, *loc_c = this->loc_c, *loc_d = this->loc_d;
+
     int I = this->I, J = this->J, n = this->n;
-    double t = this->t;
+    double t = this->t, dt = this->dt;
 
+    time = omp_get_wtime();
 
-    // пересчитываем функцию V а каждом шаге
-#pragma omp parallel for shared(V) \
-firstprivate(I, J, t) private(i, j) \
-schedule(static) collapse(2)
-    for (j = 1; j<J-1; j++)
-        for (i = 1; i<I-1; i++)
-            V[i + I*j] = area.V(x[i], y[j], t);
+    while (iterations < area.T){
+        iterate();
+        t += dt;
+        iterations++;
+        if (iterations % 10000 == 0)
+            std::cout << iterations << std::endl;
+    }
 
+//    log_matrix("H", Ha, I, J);
+//    std::cout << std::endl << std::endl;
+//    log_matrix("H", H, I, J);
+
+    time = omp_get_wtime() - time;
+
+    return H;
+}
+
+double BSolverOmp::exec_time()
+{
+    return time;
+}
+
+void BSolverOmp::addExtraIterations(int its)
+{
+    area.T += its;
+}
+
+void BSolverOmp::setTimeStep(double dt)
+{
+    this->dt = dt;
+}
+
+void BSolverOmp::cHydraulicConductivity()
+{
+    int i, j, k, kT, kH;
+    double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
+    double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
+    double *H = this->H, *x = this->x, *y = this->y;
+    int I = this->I, J = this->J;
 
 #pragma omp parallel for shared(dx_l, dx_d, dx_u) \
 firstprivate(I, J) private(j, k) \
@@ -166,7 +201,22 @@ schedule(static) collapse(2)
                     / ((y[j] + y[j+1])/2 - (y[j] + y[j-1])/2);
         }
     }
-    
+}
+
+void BSolverOmp::cSupporting()
+{
+    int i, j;
+    double *V = this->V, *x = this->x, *y = this->y;
+    double *mu = this->mu, *H = this->H;
+    int I = this->I, J = this->J, n = this->n;
+    double t = this->t;
+    // пересчитываем функцию V а каждом шаге
+#pragma omp parallel for shared(V) \
+firstprivate(I, J, t) private(i, j) \
+schedule(static) collapse(2)
+    for (j = 1; j<J-1; j++)
+        for (i = 1; i<I-1; i++)
+            V[i + I*j] = area.V(x[i], y[j], t);
 
     // вычисляем зачения mu на всей области (с буфером)
 #pragma omp parallel for shared(mu) \
@@ -176,137 +226,109 @@ schedule(static)
         getMu(&mu[i], H[i]);
 }
 
-double* BSolverOmp::solve()
+void BSolverOmp::cExplicitDerivative()
 {
-//    using namespace __bpde_omp;
 
-    double *V = this->V, *x = this->x, *y = this->y;
+    int i, j, kT, kH;
+    double *H = this->H, *Ha = this->Ha, *V = this->V, *mu = this->mu;
     double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
     double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
-    double *H = this->H, *Ha = this->Ha;
-
-    double *mu = this->mu;
-    double *b = this->b, *loc_c = this->loc_c, *loc_d = this->loc_d;
-
-    int I = this->I, J = this->J, n = this->n;
-    double t = this->t, dt = this->dt;
-
-    double* tmp_v = new double[n];
-
-    time = omp_get_wtime();
-
-    while (iterations < area.T){
-
-        prepareIteration();
-
-        int k = 0;
-        int i, j, kT, kH;
-        double tmp;
+    int I = this->I, J = this->J;
 
 #pragma omp parallel for shared(H, dx_l, dx_d, dx_u, dy_l, dy_d, dy_u, V, mu) \
 firstprivate(I, J) private(i, j, kT, kH) \
 schedule(static) collapse(2)
-        for (i = 1; i < I - 1; i++)
-            for (j = 1; j < J - 1; j++) {
-                kT = i*J + j;
-                kH = j*I + i;
-                Ha[kH] =(
-                         dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
-                         dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
-                         V[kH]
-                        )
-                        / mu[kH];
-            }
+    for (i = 1; i < I - 1; i++)
+        for (j = 1; j < J - 1; j++) {
+            kT = i*J + j;
+            kH = j*I + i;
+            Ha[kH] =(
+                     dx_l[kH]*H[kH-1] + dx_d[kH]*H[kH] + dx_u[kH]*H[kH+1] +
+                     dy_l[kT]*H[kH-I] + dy_d[kT]*H[kH] + dy_u[kT]*H[kH+I] +
+                     V[kH]
+                    )
+                    / mu[kH];
+        }
+}
 
-        // неявная прогонка по X
+void BSolverOmp::cImplicitTDMAs()
+{
+    int i, j, k, kT, kH;
+    double tmp;
+    double *H = this->H, *Ha = this->Ha, *mu = this->mu, *b = this->b;
+    double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
+    double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
+    double *loc_c = this->loc_c, *loc_d = this->loc_d;
+    int I = this->I, J = this->J;
+    double dt = this->dt;
+    double *tmp_v = this->tmp_v;
+
+    // неявная прогонка по X
 #pragma omp parallel for shared(Ha, b, mu, dx_d) \
 firstprivate(I, J, dt) private(i, j, k, tmp) \
 schedule(static) collapse(2)
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++) {
-                k = j*I + i;
-                tmp = mu[k] / dt;
-                dx_d[k] -= tmp;
-                b[k] = - Ha[k] * tmp;
-            }
+    for (i = 2; i < I - 2; i++)
+        for (j = 2; j < J - 2; j++) {
+            k = j*I + i;
+            tmp = mu[k] / dt;
+            dx_d[k] -= tmp;
+            b[k] = - Ha[k] * tmp;
+        }
 
 #pragma omp parallel for shared(dx_l, dx_d, dx_u, tmp_v, b, loc_c, loc_d) \
 firstprivate(I, J) private(j, k) \
 schedule(static)
-        for (j = 2; j<J-2; j++){
-            k = j*I+1;
-            TDMA(&dx_l[k], &dx_d[k], &dx_u[k], &tmp_v[k], &b[k], I-2, 1, &loc_c[k], &loc_d[k]);
-        }
+    for (j = 2; j<J-2; j++){
+        k = j*I+1;
+        TDMA(&dx_l[k], &dx_d[k], &dx_u[k], &tmp_v[k], &b[k], I-2, 1, &loc_c[k], &loc_d[k]);
+    }
 
-        // неявная прогонка по Y
+    // неявная прогонка по Y
 #pragma omp parallel for shared(tmp_v, mu, dy_d) \
 firstprivate(I, J, dt) private(i, j, kT, kH, tmp) \
 schedule(static) collapse(2)
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++) {
-                kT = i*J + j;
-                kH = j*I + i;
-                tmp = mu[kH] / dt;
-                dy_d[kT] -= tmp;
-                tmp_v[kH] = -tmp_v[kH] * tmp;
-        }
+    for (i = 2; i < I - 2; i++)
+        for (j = 2; j < J - 2; j++) {
+            kT = i*J + j;
+            kH = j*I + i;
+            tmp = mu[kH] / dt;
+            dy_d[kT] -= tmp;
+            tmp_v[kH] = -tmp_v[kH] * tmp;
+    }
 
 #pragma omp parallel for shared(tmp_v) \
 firstprivate(I, J) private(i, kH) \
 schedule(static)
-        for (i = 2; i< I - 2; i++) {
-            int kH = I + i;
-            tmp_v[kH] = 0;
-            kH = (J-2)*I + i;
-            tmp_v[kH] =  0;
-        }
+    for (i = 2; i< I - 2; i++) {
+        int kH = I + i;
+        tmp_v[kH] = 0;
+        kH = (J-2)*I + i;
+        tmp_v[kH] =  0;
+    }
 
-        // исправить это!
 #pragma omp parallel for shared(dy_l, dy_d, dy_u, Ha, tmp_v, loc_c, loc_d) \
 firstprivate(I, J) private(i, kH, kT) \
 schedule(static)
-        for (i = 2; i < I - 2; i++) {
-            kH = I + i;
-            kT = i*J+1;
-            TDMA_t(&dy_l[kT], &dy_d[kT], &dy_u[kT], &Ha[kH], &tmp_v[kH], J-2, I, &loc_c[kT], &loc_d[kT]);
-        }
+    for (i = 2; i < I - 2; i++) {
+        kH = I + i;
+        kT = i*J+1;
+        TDMA_t(&dy_l[kT], &dy_d[kT], &dy_u[kT], &Ha[kH], &tmp_v[kH], J-2, I, &loc_c[kT], &loc_d[kT]);
+    }
+}
 
+void BSolverOmp::cNextLayer()
+{
+    int i, j;
+    double *H = this->H, *Ha = this->Ha;
+    int I = this->I, J = this->J;
+    double dt = this->dt;
 #pragma omp parallel for shared(H, Ha) \
 firstprivate(I, J) private(i, j) \
 schedule(static)
-        for (i = 2; i < I - 2; i++)
-            for (j = 2; j < J - 2; j++)
-            H[j*I + i] = H[j*I + i] + dt*Ha[j*I + i];
+    for (i = 2; i < I - 2; i++)
+        for (j = 2; j < J - 2; j++)
+        H[j*I + i] = H[j*I + i] + dt*Ha[j*I + i];
 
-
-        t += dt;
-        iterations++;
-        if (iterations % 10000 == 0)
-            std::cout << iterations << std::endl;
-    }
-
-//    log_matrix("H", Ha, I, J);
-//    std::cout << std::endl << std::endl;
-//    log_matrix("H", H, I, J);
-
-    time = omp_get_wtime() - time;
-
-    return H;
-}
-
-double BSolverOmp::exec_time()
-{
-    return time;
-}
-
-void BSolverOmp::addExtraIterations(int its)
-{
-    area.T += its;
-}
-
-void BSolverOmp::setTimeStep(double dt)
-{
-    this->dt = dt;
 }
 
 } // namespace Bpde
