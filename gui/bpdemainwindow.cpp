@@ -22,14 +22,11 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
 
     connect(openMPEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
     connect(openClEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
+    connect(deviceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(loadSource()));
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(openMPEnabled);
     vbox->addWidget(openClEnabled);
-//    runParameters->setMinimumSize(260,140);
-//    runParameters->setMaximumSize(260,140);
-
-
 
 
     QLabel *threadsLabel = new QLabel("Количество потоков");
@@ -41,7 +38,12 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     QHBoxLayout *deviceLayout = new QHBoxLayout;
     QLabel *deviceLabel = new QLabel("Устройство");
     deviceComboBox = new QComboBox();
-    deviceComboBox->addItem("CPU Intel Core i5 4 cores");
+
+    scanDevices();
+    for (std::vector<cl::Device>::iterator it = devices.begin(); it != devices.end(); it++)
+        deviceComboBox->addItem((*it).getInfo<CL_DEVICE_NAME>().c_str());
+
+
     deviceLayout->addWidget(deviceLabel);
     deviceLayout->addWidget(deviceComboBox);
 
@@ -57,12 +59,8 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     ulLayout->addLayout(deviceLayout);
     ulLayout->addLayout(runLayout);
 
-
     runParameters->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     runParameters->setLayout(ulLayout);
-
-
-
 
     QButtonGroup *kernelGroup = new QButtonGroup;
     kernelGroup->addButton(openMPEnabled, 0);
@@ -74,7 +72,6 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     QHBoxLayout *stepLayout = new QHBoxLayout;
     QLabel *sourceFileLabel = new QLabel("SourceFile");
     sourceFileEdit = new QLineEdit(sourceFile);
-//    connect(sourceFileEdit, SIGNAL(clicked()), this, SLOT(selectSourceFile()));
     iterationsEdit = new QLineEdit("10000");
     stepEdit = new QLineEdit("3600");
     QLabel *iterationsLabel = new QLabel("Итерации");
@@ -89,7 +86,6 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     iterationsLayout->addWidget(iterationsEdit);
     stepLayout->addWidget(stepLabel);
     stepLayout->addWidget(stepEdit);
-
 
     exportLayout->addWidget(exportImage);
     exportLayout->addWidget(export3D);
@@ -107,7 +103,6 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     solveParamBox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     solveParamBox->setLayout(solveParamLayout);
 
-
     QHBoxLayout *upperlayout = new QHBoxLayout;
     upperlayout->addWidget(runParameters);
     upperlayout->addWidget(solveParamBox);
@@ -119,7 +114,6 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     outer->addLayout(upperlayout);
     outer->addLayout(lowerlayout);
     window->setLayout(outer);
-//    window->show();
 }
 
 void BpdeMainWindow::assignAreaToR(const Bpde::BArea &area)
@@ -154,6 +148,19 @@ void BpdeMainWindow::reAssignH(double *Hfunc)
     R.parseEval("for (j in 2:(J-1)){ for (i in 2:(I-1)){ H[i-1,j-1] = Htmp[(j-1)*I+(i-1) + 1]} }");
 }
 
+void BpdeMainWindow::scanDevices()
+{
+    std::vector<cl::Platform> platforms;
+    std::vector<cl::Device> tmp;
+    cl::Platform::get(&platforms);
+    for (std::vector<cl::Platform>::iterator it = platforms.begin();
+         it!=platforms.end(); it++)
+    {
+        (*it).getDevices(CL_DEVICE_TYPE_ALL, &tmp);
+        std::copy(tmp.begin(), tmp.end(), std::back_inserter(devices));
+    }
+}
+
 void BpdeMainWindow::loadSource()
 {
     Bpde::BArea area(sourceFileEdit->text().toStdString());
@@ -164,8 +171,11 @@ void BpdeMainWindow::loadSource()
                 threadsLineEdit->text().toInt());
     }
     else {
+        std::vector<cl::Device> dev;
+        dev.push_back(devices[deviceComboBox->currentIndex()]);
         solver = Bpde::BSolverBuilder::getInstance()->getSolver(
-                sourceFileEdit->text().toStdString(), Bpde::ParallelizationMethod::OPENCL);
+                    sourceFileEdit->text().toStdString(), Bpde::ParallelizationMethod::OPENCL,
+                    dev);
     }
     solver->setTimeStep(0);
     solver->addExtraIterations(-area.T);

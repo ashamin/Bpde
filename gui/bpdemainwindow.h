@@ -39,6 +39,7 @@ private:
     void filterFile();
     void assignAreaToR(const Bpde::BArea& area);
     void reAssignH(double* HFunc);
+    void scanDevices();
 
     Bpde::BSolver *solver;
 
@@ -57,6 +58,8 @@ private:
     QLineEdit *sourceFileEdit, *iterationsEdit, *stepEdit, *threadsLineEdit;
 
     QComboBox *deviceComboBox;
+
+    std::vector<cl::Device> devices;
 
 public slots:
     void solve();

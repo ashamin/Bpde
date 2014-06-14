@@ -17,8 +17,6 @@ BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
      time(0),
      threadsNum(threadsNum)
 {
-//    using namespace __bpde_omp;
-
     dt = area.dt;
 
     I = area.I;
@@ -56,36 +54,11 @@ BSolverOmp::BSolverOmp(const BArea& area, int threadsNum)
     
 BSolverOmp::~BSolverOmp()
 {
-//    using namespace __bpde_omp;
-    delete[] Ha;
-    delete[] b;
-    delete[] V;
-    delete[] dx_d;
-    delete[] dx_l;
-    delete[] dx_u;
-    delete[] dy_d;
-    delete[] dy_l;
-    delete[] dy_u;
-    delete[] mu;
-    delete[] loc_c;
-    delete[] loc_d;
+    delete[] tmp_v;
 }
 
 double* BSolverOmp::solve()
 {
-//    using namespace __bpde_omp;
-
-    double *V = this->V, *x = this->x, *y = this->y;
-    double *dx_l = this->dx_l, *dx_d = this->dx_d, *dx_u = this->dx_u;
-    double *dy_l = this->dy_l, *dy_d = this->dy_d, *dy_u = this->dy_u;
-    double *H = this->H, *Ha = this->Ha;
-
-    double *mu = this->mu;
-    double *b = this->b, *loc_c = this->loc_c, *loc_d = this->loc_d;
-
-    int I = this->I, J = this->J, n = this->n;
-    double t = this->t, dt = this->dt;
-
     time = omp_get_wtime();
 
     while (iterations < area.T){
@@ -95,10 +68,6 @@ double* BSolverOmp::solve()
         if (iterations % 10000 == 0)
             std::cout << iterations << std::endl;
     }
-
-//    log_matrix("H", Ha, I, J);
-//    std::cout << std::endl << std::endl;
-//    log_matrix("H", H, I, J);
 
     time = omp_get_wtime() - time;
 

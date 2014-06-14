@@ -30,7 +30,21 @@ public:
           dx_d(NULL), dx_l(NULL), dx_u(NULL), dy_d(NULL), dy_l(NULL), dy_u(NULL),
           loc_c(NULL), loc_d(NULL)
     {}
-    virtual ~BSolver(){}
+    virtual ~BSolver()
+    {
+        delete[] Ha;
+        delete[] b;
+        delete[] V;
+        delete[] dx_d;
+        delete[] dx_l;
+        delete[] dx_u;
+        delete[] dy_d;
+        delete[] dy_l;
+        delete[] dy_u;
+        delete[] mu;
+        delete[] loc_c;
+        delete[] loc_d;
+    }
     virtual double* solve(){}
     inline virtual void iterate() {
         cHydraulicConductivity();
