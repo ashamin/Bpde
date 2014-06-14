@@ -161,6 +161,13 @@ void BpdeMainWindow::scanDevices()
     }
 }
 
+std::string BpdeMainWindow::getSource(std::string filename)
+{
+    std::ifstream file(filename.c_str());
+    std::string ret(std::istreambuf_iterator<char>(file), (std::istreambuf_iterator<char>()));
+    return ret;
+}
+
 void BpdeMainWindow::loadSource()
 {
     Bpde::BArea area(sourceFileEdit->text().toStdString());
@@ -213,12 +220,8 @@ void BpdeMainWindow::export3DModel()
     }
     if (file != "") {
         R.assign(file.toStdString(), "csvFilePath");
-        R.parseEval("fx = c(x, rep(-1, length(H)-length(x)));"
-            "fy = c(y, rep(-1, length(H)-length(y)));"
-            "fH = c(H);"
-            "csv = data.frame(fx, fy, fH);"
-            "write.csv2(csv, file=csvFilePath);"
-        );
+        std::string cmd = getSource("/home/ashamin/diploma/src/Bpde/gui/R/export3dmodel.R");
+        R.parseEval(cmd);
     }
 }
 
@@ -248,9 +251,7 @@ void BpdeMainWindow::exportIsoterms()
 
 void BpdeMainWindow::plot()
 {
-    std::string cmd0 = "svg(width=6,height=6,pointsize=10,filename=tfile); ";
-    std::string cmd = cmd0 + "library(\"fields\");image.plot(x, y, H);"
-            "contour(x, y, H, add = TRUE);dev.off()";
+    std::string cmd = getSource("/home/ashamin/diploma/src/Bpde/gui/R/isoterms.R");
     R.parseEvalQ(cmd);
     filterFile();
     svg->load(svgfile);

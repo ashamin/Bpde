@@ -2,6 +2,8 @@
 #define BPDEMAINWINDOW_H
 
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #include <QWidget>
 #include <QLabel>
@@ -40,6 +42,7 @@ private:
     void assignAreaToR(const Bpde::BArea& area);
     void reAssignH(double* HFunc);
     void scanDevices();
+    std::string getSource(std::string filename);
 
     Bpde::BSolver *solver;
 
