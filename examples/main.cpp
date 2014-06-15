@@ -79,6 +79,7 @@ int main(int argc, char **argv) {
 
 //    for (int i = 0; i<10; i++)
 //    {
+
         BSolver* solver = BSolverBuilder::getInstance()->
                 getSolver("xyz0.txt", ParallelizationMethod::OPENMP, 2);
         solver->solve();

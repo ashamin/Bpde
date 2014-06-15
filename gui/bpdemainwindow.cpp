@@ -22,7 +22,6 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
 
     connect(openMPEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
     connect(openClEnabled, SIGNAL(clicked()), this, SLOT(loadSource()));
-    connect(deviceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(loadSource()));
 
     QVBoxLayout *vbox = new QVBoxLayout;
     vbox->addWidget(openMPEnabled);
@@ -43,6 +42,7 @@ BpdeMainWindow::BpdeMainWindow(RInside& R, const QString& sourceFile, QObject *p
     for (std::vector<cl::Device>::iterator it = devices.begin(); it != devices.end(); it++)
         deviceComboBox->addItem((*it).getInfo<CL_DEVICE_NAME>().c_str());
 
+    connect(deviceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(loadSource()));
 
     deviceLayout->addWidget(deviceLabel);
     deviceLayout->addWidget(deviceComboBox);

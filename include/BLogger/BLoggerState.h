@@ -5,6 +5,9 @@
 #include <iostream>
 #include <cmath>
 
+namespace Bpde
+{
+
 class BLoggerState
 {
 public:
@@ -19,12 +22,15 @@ public:
 class BLoggerStateEnabled : public BLoggerState
 {
 public:
-    BLoggerStateEnabled(){}
-    virtual ~BLoggerStateEnabled(){}
-    virtual void logMatrix(std::string name, double* var, int xSz, int ySz);
+    BLoggerStateEnabled(){log = &std::cout;}
+    BLoggerStateEnabled(std::basic_ostream<char>* stream);
+    inline virtual ~BLoggerStateEnabled(){delete log;}
+    inline virtual void logMatrix(std::string name, double* var, int xSz, int ySz);
     inline virtual void log3DiagMatrix(std::string name, double* lower,
             double *main, double *upper, int size, int sz);
     inline virtual void logVector(std::string name, double* var, int size);
+private:
+    std::basic_ostream<char>* log;
 }; // BLoggerStateEnabled
 
 class BLoggerStateDisabled : public BLoggerState
@@ -37,6 +43,8 @@ public:
             double *main, double *upper, int size, int sz) {}
     inline virtual void logVector(std::string name, double* var, int size) {}
 }; // BLoggerStateDisabled
+
+} // namespace Bpde
 
 
 #endif

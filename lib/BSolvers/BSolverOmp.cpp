@@ -297,7 +297,6 @@ schedule(static)
     for (i = 2; i < I - 2; i++)
         for (j = 2; j < J - 2; j++)
         H[j*I + i] = H[j*I + i] + dt*Ha[j*I + i];
-
 }
 
 } // namespace Bpde

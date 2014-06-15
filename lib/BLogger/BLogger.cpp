@@ -1,17 +1,29 @@
 #include "BLogger/BLogger.h"
 
+namespace Bpde
+{
+
 BLogger* BLogger::instance = NULL;
 
 void BLogger::enable()
 {
     delete state;
-    state = new BLoggerStateEnabled();
+    state = new BLoggerStateEnabled(stream);
 }
 
 void BLogger::disable()
 {
     delete state;
     state = new BLoggerStateDisabled();
+}
+
+void BLogger::setStream(std::basic_ostream<char> *stream)
+{
+    this->stream = stream;
+    if (dynamic_cast<BLoggerStateEnabled*>(state)) {
+        delete state;
+        state = new BLoggerStateEnabled(stream);
+    }
 }
 
 void BLogger::logMatrix(std::string name, double *var, int xSz, int ySz)
@@ -31,7 +43,9 @@ void BLogger::logVector(std::string name, double *var, int size)
 }
 
 BLogger::BLogger()
-    : state(NULL)
+    : state(NULL), stream(&std::cout)
 {
     state = new BLoggerStateDisabled();
 }
+
+} // namespace Bpde
