@@ -3,7 +3,11 @@
 
 #include "BSolver.h"
 
-#include "CL/cl.hpp"
+#ifdef MAC
+#include <OpenCL/cl.hpp>
+#else
+#include <CL/cl.hpp>
+#endif
 #include "omp.h"
 
 #include <iostream>
